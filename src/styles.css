@@ -41,22 +41,7 @@
   --color-teal-foreground: var(--teal-foreground);
 }
 
-@layer base {
-  @font-face {
-    font-family: "Outfit";
-    font-style: normal;
-    font-weight: 100 900;
-    font-display: swap;
-    src: url("https://fonts.gstatic.com/s/outfit/v11/QGYvz_MVcBeNP4NJtEtq.woff2") format("woff2");
-  }
-  @font-face {
-    font-family: "Figtree";
-    font-style: normal;
-    font-weight: 300 900;
-    font-display: swap;
-    src: url("https://fonts.gstatic.com/s/figtree/v6/_Xms-HUzqDCFdgfMm4q9DbQ.woff2") format("woff2");
-  }
-}
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Figtree:wght@300;400;500;600;700&display=swap");
 
 :root {
   --radius: 0.875rem;
