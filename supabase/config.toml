@@ -1,1 +1,4 @@
 project_id = "owiexrrklizkmbreynpx"
+
+[functions.medical-ai]
+verify_jwt = false
