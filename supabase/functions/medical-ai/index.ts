@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { mode = "doctor", messages = [], prompt, stream = true, model = "google/gemini-3-flash-preview" } = await req.json();
+    const { mode = "doctor", messages = [], prompt, stream = true, model = "google/gemini-3-flash-preview", tools } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -56,16 +56,23 @@ Deno.serve(async (req: Request) => {
 
     const sys = SYSTEM_PROMPTS[mode] ?? SYSTEM_PROMPTS.doctor;
     const finalMessages = messages.length > 0 ? messages : [{ role: "user", content: prompt ?? "" }];
-    const useStream = stream && mode === "doctor";
+    // When tools are provided we must use non-streaming so the client can run the agent loop
+    const useStream = stream && mode === "doctor" && !tools;
+
+    const body: Record<string, unknown> = {
+      model,
+      messages: [{ role: "system", content: sys }, ...finalMessages],
+      stream: useStream,
+    };
+    if (tools && Array.isArray(tools) && tools.length > 0) {
+      body.tools = tools;
+      body.tool_choice = "auto";
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: sys }, ...finalMessages],
-        stream: useStream,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -81,6 +88,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await response.json();
+    // If tools were provided, return the full message (may include tool_calls)
+    if (tools) {
+      const message = data.choices?.[0]?.message ?? { role: "assistant", content: "" };
+      const finish_reason = data.choices?.[0]?.finish_reason ?? null;
+      return new Response(JSON.stringify({ message, finish_reason }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     let content: string = data.choices?.[0]?.message?.content ?? "";
     // Try parse JSON for non-doctor modes that expect JSON
     if (mode === "lab" || mode === "patient") {
