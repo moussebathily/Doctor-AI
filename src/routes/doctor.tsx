@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { AppShell } from "@/components/AppShell";
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Stethoscope, Loader2, Sparkles } from "lucide-react";
+import { Send, Stethoscope, Loader2, Sparkles, Wrench, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { MEDICAL_TOOLS, executeTool } from "@/lib/medical-tools";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({
@@ -17,13 +19,17 @@ export const Route = createFileRoute("/doctor")({
   component: DoctorPage,
 });
 
-type Msg = { role: "user" | "assistant"; content: string };
+type ToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
+type Msg =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; tool_calls?: ToolCall[] }
+  | { role: "tool"; content: string; tool_call_id: string; name: string };
 
 const SUGGESTIONS = [
-  "J'ai mal à la tête depuis 3 jours, que faire ?",
+  "Rappelle-moi de prendre Doliprane à 20h",
   "Quels symptômes pour le paludisme ?",
-  "Ma tension est de 14/9, est-ce grave ?",
-  "Comment soigner une plaie superficielle ?",
+  "Simule une analyse de sang pour une femme de 35 ans fatiguée",
+  "Liste mes rappels actifs",
 ];
 
 function DoctorPage() {
@@ -36,65 +42,51 @@ function DoctorPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  const callAI = async (history: Msg[]): Promise<{ message: { role: "assistant"; content: string | null; tool_calls?: ToolCall[] }; finish_reason: string | null }> => {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/medical-ai`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "doctor", messages: history, tools: MEDICAL_TOOLS, stream: false }),
+    });
+    if (!resp.ok) {
+      if (resp.status === 429) throw new Error("Trop de requêtes.");
+      if (resp.status === 402) throw new Error("Crédits IA épuisés.");
+      throw new Error("Erreur IA");
+    }
+    return resp.json();
+  };
+
   const send = async (text: string) => {
     if (!text.trim() || loading) return;
     const userMsg: Msg = { role: "user", content: text };
-    setMessages((p) => [...p, userMsg]);
+    let working: Msg[] = [...messages, userMsg];
+    setMessages(working);
     setInput("");
     setLoading(true);
 
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/medical-ai`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "doctor", messages: [...messages, userMsg], stream: true }),
-      });
+      // Agent loop: up to 5 tool rounds
+      for (let i = 0; i < 5; i++) {
+        const { message, finish_reason } = await callAI(working);
+        const asst: Msg = { role: "assistant", content: message.content ?? "", tool_calls: message.tool_calls };
+        working = [...working, asst];
+        setMessages(working);
 
-      if (!resp.ok || !resp.body) {
-        if (resp.status === 429) toast.error("Trop de requêtes. Réessayez dans un instant.");
-        else if (resp.status === 402) toast.error("Crédits IA épuisés.");
-        else toast.error("Erreur de connexion à l'IA.");
-        setLoading(false);
-        return;
-      }
+        if (finish_reason !== "tool_calls" || !message.tool_calls?.length) break;
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let assistantContent = "";
-      let done = false;
-
-      setMessages((p) => [...p, { role: "assistant", content: "" }]);
-
-      while (!done) {
-        const { done: d, value } = await reader.read();
-        if (d) break;
-        buffer += decoder.decode(value, { stream: true });
-        let nl;
-        while ((nl = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, nl);
-          buffer = buffer.slice(nl + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const json = line.slice(6).trim();
-          if (json === "[DONE]") { done = true; break; }
-          try {
-            const parsed = JSON.parse(json);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              assistantContent += delta;
-              setMessages((p) => p.map((m, i) => i === p.length - 1 ? { ...m, content: assistantContent } : m));
-            }
-          } catch {
-            buffer = line + "\n" + buffer;
-            break;
-          }
+        // Execute each tool call
+        for (const tc of message.tool_calls) {
+          let args: Record<string, unknown> = {};
+          try { args = JSON.parse(tc.function.arguments || "{}"); } catch { /* ignore */ }
+          const result = await executeTool(tc.function.name, args);
+          const toolMsg: Msg = { role: "tool", content: result, tool_call_id: tc.id, name: tc.function.name };
+          working = [...working, toolMsg];
+          setMessages(working);
         }
       }
     } catch (e) {
-      console.error(e);
-      toast.error("Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : "Erreur");
     } finally {
       setLoading(false);
     }
@@ -108,10 +100,13 @@ function DoctorPage() {
             <div className="w-10 h-10 rounded-xl gradient-teal flex items-center justify-center shadow-soft">
               <Stethoscope className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="font-display font-bold text-xl">Doctor AI</h1>
-              <p className="text-xs text-muted-foreground">Assistant médical IA — réponses en français</p>
+              <p className="text-xs text-muted-foreground">Assistant connecté à vos rappels et au Virtual Lab</p>
             </div>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-accent/10 text-accent font-medium">
+              <Wrench className="w-3 h-3" /> Tools actifs
+            </span>
           </div>
         </div>
 
@@ -122,7 +117,7 @@ function DoctorPage() {
                 <Sparkles className="w-7 h-7 text-white" />
               </div>
               <h2 className="font-display text-2xl font-bold">Comment puis-je vous aider ?</h2>
-              <p className="text-muted-foreground text-sm mt-2">Décrivez vos symptômes ou posez une question médicale.</p>
+              <p className="text-muted-foreground text-sm mt-2">Symptômes, rappels, simulations — je peux agir directement dans l'app.</p>
               <div className="mt-6 grid sm:grid-cols-2 gap-2">
                 {SUGGESTIONS.map((s) => (
                   <button key={s} onClick={() => send(s)} className="text-left text-sm p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all">
@@ -133,17 +128,57 @@ function DoctorPage() {
             </div>
           )}
 
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] md:max-w-[75%] px-4 py-3 rounded-2xl whitespace-pre-wrap ${
-                m.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                  : "bg-card border border-border rounded-bl-sm shadow-soft"
-              }`}>
-                {m.content || (loading && i === messages.length - 1 ? <Loader2 className="w-4 h-4 animate-spin" /> : "")}
+          {messages.map((m, i) => {
+            if (m.role === "tool") {
+              let label = "Action";
+              try {
+                const parsed = JSON.parse(m.content);
+                if (parsed.ok && m.name === "create_reminder") label = `Rappel ajouté : ${parsed.reminder?.title ?? ""}`;
+                else if (m.name === "list_reminders") label = `${parsed.count ?? 0} rappel(s) lus`;
+                else if (m.name === "run_lab_simulation") label = "Analyse simulée";
+                else if (parsed.error) label = `Erreur : ${parsed.error}`;
+              } catch { /* ignore */ }
+              return (
+                <div key={i} className="flex justify-center">
+                  <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-success/10 text-success border border-success/20">
+                    <CheckCircle2 className="w-3 h-3" /> {label}
+                  </div>
+                </div>
+              );
+            }
+            if (m.role === "assistant" && !m.content && m.tool_calls?.length) {
+              return (
+                <div key={i} className="flex justify-start">
+                  <div className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-2xl bg-muted text-muted-foreground">
+                    <Wrench className="w-3 h-3 animate-pulse" /> Exécution de {m.tool_calls.map((t) => t.function.name).join(", ")}...
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] md:max-w-[75%] px-4 py-3 rounded-2xl ${
+                  m.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
+                    : "bg-card border border-border rounded-bl-sm shadow-soft"
+                }`}>
+                  {m.role === "assistant" ? (
+                    <div className="prose prose-sm max-w-none prose-headings:font-display prose-headings:mt-2 prose-p:my-1.5 prose-ul:my-1.5">
+                      <ReactMarkdown>{m.content || "..."}</ReactMarkdown>
+                    </div>
+                  ) : m.content}
+                </div>
+              </div>
+            );
+          })}
+
+          {loading && (
+            <div className="flex justify-start">
+              <div className="px-4 py-3 rounded-2xl bg-card border border-border shadow-soft">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
             </div>
-          ))}
+          )}
         </div>
 
         <div className="border-t border-border p-4 bg-card/50 backdrop-blur space-y-2">
@@ -152,7 +187,7 @@ function DoctorPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
-              placeholder="Décrivez vos symptômes..."
+              placeholder="Décrivez vos symptômes ou demandez une action..."
               className="min-h-[48px] max-h-32 resize-none"
               disabled={loading}
             />
