@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchNearbyPharmacies, getUserLocation } from "@/lib/pharmacy";
 
 // OpenAI-compatible tool schema for Lovable AI Gateway
 export const MEDICAL_TOOLS = [
@@ -44,6 +45,50 @@ export const MEDICAL_TOOLS = [
           symptoms: { type: "string", description: "Symptômes décrits par le patient" },
         },
         required: ["analysis_type", "age", "sex", "symptoms"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_pharmacies",
+      description: "Trouve les pharmacies réelles autour de l'utilisateur via géolocalisation. Retourne nom, adresse, distance.",
+      parameters: {
+        type: "object",
+        properties: {
+          radius_km: { type: "number", description: "Rayon de recherche en km (défaut 3)", default: 3 },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_medication",
+      description: "Recherche un médicament dans le catalogue (nom commercial ou DCI). Retourne posologie, ordonnance, interactions connues.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Nom du médicament (ex: Doliprane, ibuprofène)" },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_drug_interactions",
+      description: "Vérifie s'il existe des interactions dangereuses entre une liste de médicaments.",
+      parameters: {
+        type: "object",
+        properties: {
+          medications: { type: "array", items: { type: "string" }, description: "Liste de noms de médicaments" },
+        },
+        required: ["medications"],
         additionalProperties: false,
       },
     },
