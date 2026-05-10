@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SimulationRouteImport } from './routes/simulation'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as PharmacyRouteImport } from './routes/pharmacy'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -30,6 +31,11 @@ const ResearchRoute = ResearchRouteImport.update({
 const RemindersRoute = RemindersRouteImport.update({
   id: '/reminders',
   path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PharmacyRoute = PharmacyRouteImport.update({
+  id: '/pharmacy',
+  path: '/pharmacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LabRoute = LabRouteImport.update({
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
+  '/pharmacy': typeof PharmacyRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
   '/simulation': typeof SimulationRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
+  '/pharmacy': typeof PharmacyRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
   '/simulation': typeof SimulationRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
+  '/pharmacy': typeof PharmacyRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
   '/simulation': typeof SimulationRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/doctor'
     | '/lab'
+    | '/pharmacy'
     | '/reminders'
     | '/research'
     | '/simulation'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/doctor'
     | '/lab'
+    | '/pharmacy'
     | '/reminders'
     | '/research'
     | '/simulation'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/doctor'
     | '/lab'
+    | '/pharmacy'
     | '/reminders'
     | '/research'
     | '/simulation'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DoctorRoute: typeof DoctorRoute
   LabRoute: typeof LabRoute
+  PharmacyRoute: typeof PharmacyRoute
   RemindersRoute: typeof RemindersRoute
   ResearchRoute: typeof ResearchRoute
   SimulationRoute: typeof SimulationRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/reminders'
       fullPath: '/reminders'
       preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pharmacy': {
+      id: '/pharmacy'
+      path: '/pharmacy'
+      fullPath: '/pharmacy'
+      preLoaderRoute: typeof PharmacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lab': {
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DoctorRoute: DoctorRoute,
   LabRoute: LabRoute,
+  PharmacyRoute: PharmacyRoute,
   RemindersRoute: RemindersRoute,
   ResearchRoute: ResearchRoute,
   SimulationRoute: SimulationRoute,
@@ -187,3 +208,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
