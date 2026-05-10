@@ -183,7 +183,7 @@ function PharmacyPage() {
               </Button>
               {selected && <Badge variant="outline" className="px-3 py-1.5">📍 {selected.name}</Badge>}
             </div>
-            <PharmacyMap user={user} pharmacies={pharmacies} selectedId={selected?.id} onSelect={setSelected} />
+            <ClientOnly fallback={<div className="w-full h-[360px] md:h-[480px] rounded-2xl bg-muted animate-pulse" />}><PharmacyMap user={user} pharmacies={pharmacies} selectedId={selected?.id} onSelect={setSelected} /></ClientOnly>
           </div>
 
           <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">

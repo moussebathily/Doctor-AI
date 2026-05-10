@@ -115,7 +115,7 @@ function SimulationPage() {
 
           <div className="grid lg:grid-cols-5 gap-6">
             <div className="lg:col-span-3">
-              <HumanBody3D highlightOrgan={selected.organ} />
+              <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}><Suspense fallback={null}><HumanBody3D highlightOrgan={selected.organ} /></Suspense></ClientOnly>
               <p className="text-[11px] text-muted-foreground mt-2 text-center">Glissez pour pivoter • Molette pour zoomer</p>
             </div>
 
@@ -205,7 +205,7 @@ function SimulationPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          <HumanBody3D />
+          <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}><Suspense fallback={null}><HumanBody3D /></Suspense></ClientOnly>
           <div className="space-y-3">
             <h2 className="font-display font-semibold text-lg">Choisissez une opération</h2>
             {OPERATIONS.map((op) => (
