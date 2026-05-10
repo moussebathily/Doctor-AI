@@ -62,6 +62,42 @@ export type Database = {
         }
         Relationships: []
       }
+      medications: {
+        Row: {
+          category: string | null
+          common_doses: string[] | null
+          created_at: string
+          description: string | null
+          generic_name: string | null
+          id: string
+          interactions: string[] | null
+          name: string
+          requires_prescription: boolean
+        }
+        Insert: {
+          category?: string | null
+          common_doses?: string[] | null
+          created_at?: string
+          description?: string | null
+          generic_name?: string | null
+          id?: string
+          interactions?: string[] | null
+          name: string
+          requires_prescription?: boolean
+        }
+        Update: {
+          category?: string | null
+          common_doses?: string[] | null
+          created_at?: string
+          description?: string | null
+          generic_name?: string | null
+          id?: string
+          interactions?: string[] | null
+          name?: string
+          requires_prescription?: boolean
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -96,6 +132,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pharmacy_orders: {
+        Row: {
+          created_at: string
+          delivery_method: string
+          id: string
+          items: Json
+          notes: string | null
+          pharmacy_address: string | null
+          pharmacy_lat: number | null
+          pharmacy_lng: number | null
+          pharmacy_name: string
+          status: string
+          total_items: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_method?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          pharmacy_address?: string | null
+          pharmacy_lat?: number | null
+          pharmacy_lng?: number | null
+          pharmacy_name: string
+          status?: string
+          total_items?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivery_method?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          pharmacy_address?: string | null
+          pharmacy_lat?: number | null
+          pharmacy_lng?: number | null
+          pharmacy_name?: string
+          status?: string
+          total_items?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

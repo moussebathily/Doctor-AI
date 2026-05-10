@@ -9,13 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SimulationRouteImport } from './routes/simulation'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as PharmacyRouteImport } from './routes/pharmacy'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SimulationRoute = SimulationRouteImport.update({
+  id: '/simulation',
+  path: '/simulation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResearchRoute = ResearchRouteImport.update({
   id: '/research',
   path: '/research',
@@ -24,6 +31,11 @@ const ResearchRoute = ResearchRouteImport.update({
 const RemindersRoute = RemindersRouteImport.update({
   id: '/reminders',
   path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PharmacyRoute = PharmacyRouteImport.update({
+  id: '/pharmacy',
+  path: '/pharmacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LabRoute = LabRouteImport.update({
@@ -52,16 +64,20 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
+  '/pharmacy': typeof PharmacyRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
+  '/simulation': typeof SimulationRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
+  '/pharmacy': typeof PharmacyRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
+  '/simulation': typeof SimulationRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,22 +85,42 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
+  '/pharmacy': typeof PharmacyRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
+  '/simulation': typeof SimulationRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/doctor' | '/lab' | '/reminders' | '/research'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/doctor'
+    | '/lab'
+    | '/pharmacy'
+    | '/reminders'
+    | '/research'
+    | '/simulation'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/doctor' | '/lab' | '/reminders' | '/research'
+  to:
+    | '/'
+    | '/auth'
+    | '/doctor'
+    | '/lab'
+    | '/pharmacy'
+    | '/reminders'
+    | '/research'
+    | '/simulation'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/doctor'
     | '/lab'
+    | '/pharmacy'
     | '/reminders'
     | '/research'
+    | '/simulation'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -92,12 +128,21 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DoctorRoute: typeof DoctorRoute
   LabRoute: typeof LabRoute
+  PharmacyRoute: typeof PharmacyRoute
   RemindersRoute: typeof RemindersRoute
   ResearchRoute: typeof ResearchRoute
+  SimulationRoute: typeof SimulationRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/simulation': {
+      id: '/simulation'
+      path: '/simulation'
+      fullPath: '/simulation'
+      preLoaderRoute: typeof SimulationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/research': {
       id: '/research'
       path: '/research'
@@ -110,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/reminders'
       fullPath: '/reminders'
       preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pharmacy': {
+      id: '/pharmacy'
+      path: '/pharmacy'
+      fullPath: '/pharmacy'
+      preLoaderRoute: typeof PharmacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lab': {
@@ -148,8 +200,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DoctorRoute: DoctorRoute,
   LabRoute: LabRoute,
+  PharmacyRoute: PharmacyRoute,
   RemindersRoute: RemindersRoute,
   ResearchRoute: ResearchRoute,
+  SimulationRoute: SimulationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
