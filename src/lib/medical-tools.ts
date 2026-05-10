@@ -141,6 +141,42 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
       return JSON.stringify(j);
     }
 
+    if (name === "find_pharmacies") {
+      const radius = (Number(args.radius_km) || 3) * 1000;
+      const loc = await getUserLocation();
+      const list = await fetchNearbyPharmacies(loc.lat, loc.lng, radius);
+      return JSON.stringify({
+        location: loc,
+        count: list.length,
+        pharmacies: list.slice(0, 10).map((p) => ({ name: p.name, address: p.address, distance_km: p.distance_km?.toFixed(2), phone: p.phone })),
+      });
+    }
+
+    if (name === "search_medication") {
+      const q = String(args.query).toLowerCase();
+      const { data, error } = await supabase.from("medications").select("name,generic_name,category,requires_prescription,common_doses,interactions,description").or(`name.ilike.%${q}%,generic_name.ilike.%${q}%`).limit(8);
+      if (error) return JSON.stringify({ error: error.message });
+      return JSON.stringify({ count: data?.length ?? 0, results: data });
+    }
+
+    if (name === "check_drug_interactions") {
+      const meds = (args.medications as string[]) ?? [];
+      const ors = meds.map((m) => `name.ilike.%${m}%,generic_name.ilike.%${m}%`).join(",");
+      const { data } = await supabase.from("medications").select("name,generic_name,category,interactions").or(ors).limit(20);
+      const found = (data ?? []) as Array<{ name: string; generic_name: string | null; category: string | null; interactions: string[] | null }>;
+      const warnings: string[] = [];
+      for (let i = 0; i < found.length; i++) {
+        for (let j = i + 1; j < found.length; j++) {
+          const a = found[i], b = found[j];
+          const aTokens = `${a.name} ${a.generic_name ?? ""} ${a.category ?? ""}`.toLowerCase();
+          const bTokens = `${b.name} ${b.generic_name ?? ""} ${b.category ?? ""}`.toLowerCase();
+          if ((a.interactions ?? []).some((x) => bTokens.includes(x.toLowerCase()))) warnings.push(`${a.name} ↔ ${b.name}`);
+          else if ((b.interactions ?? []).some((x) => aTokens.includes(x.toLowerCase()))) warnings.push(`${b.name} ↔ ${a.name}`);
+        }
+      }
+      return JSON.stringify({ matched: found.map((f) => f.name), interactions: [...new Set(warnings)], safe: warnings.length === 0 });
+    }
+
     return JSON.stringify({ error: `Tool inconnu : ${name}` });
   } catch (e) {
     return JSON.stringify({ error: e instanceof Error ? e.message : "Erreur" });
