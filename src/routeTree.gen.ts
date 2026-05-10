@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SimulationRouteImport } from './routes/simulation'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as LabRouteImport } from './routes/lab'
@@ -16,6 +17,11 @@ import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SimulationRoute = SimulationRouteImport.update({
+  id: '/simulation',
+  path: '/simulation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResearchRoute = ResearchRouteImport.update({
   id: '/research',
   path: '/research',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/lab': typeof LabRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
+  '/simulation': typeof SimulationRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/lab': typeof LabRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
+  '/simulation': typeof SimulationRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,12 +79,27 @@ export interface FileRoutesById {
   '/lab': typeof LabRoute
   '/reminders': typeof RemindersRoute
   '/research': typeof ResearchRoute
+  '/simulation': typeof SimulationRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/doctor' | '/lab' | '/reminders' | '/research'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/doctor'
+    | '/lab'
+    | '/reminders'
+    | '/research'
+    | '/simulation'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/doctor' | '/lab' | '/reminders' | '/research'
+  to:
+    | '/'
+    | '/auth'
+    | '/doctor'
+    | '/lab'
+    | '/reminders'
+    | '/research'
+    | '/simulation'
   id:
     | '__root__'
     | '/'
@@ -85,6 +108,7 @@ export interface FileRouteTypes {
     | '/lab'
     | '/reminders'
     | '/research'
+    | '/simulation'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,10 +118,18 @@ export interface RootRouteChildren {
   LabRoute: typeof LabRoute
   RemindersRoute: typeof RemindersRoute
   ResearchRoute: typeof ResearchRoute
+  SimulationRoute: typeof SimulationRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/simulation': {
+      id: '/simulation'
+      path: '/simulation'
+      fullPath: '/simulation'
+      preLoaderRoute: typeof SimulationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/research': {
       id: '/research'
       path: '/research'
@@ -150,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   LabRoute: LabRoute,
   RemindersRoute: RemindersRoute,
   ResearchRoute: ResearchRoute,
+  SimulationRoute: SimulationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
