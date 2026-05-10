@@ -6,22 +6,24 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Stethoscope, FlaskConical, BookOpen, Bell, Sparkles, ShieldCheck,
-  Globe, ArrowRight, Activity, Heart, Brain, MessageSquare, Pill, CalendarDays, Beaker, TrendingUp,
+  Globe, ArrowRight, Activity, Heart, Brain, MessageSquare, Pill, CalendarDays, Beaker, TrendingUp, Boxes, MapPin,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Doctor AI — Plateforme IA santé" },
-      { name: "description", content: "Assistant médical IA, laboratoire virtuel, recherche scientifique et rappels de médicaments." },
+      { name: "description", content: "Assistant médical IA, laboratoire virtuel, simulation 3D, pharmacies et rappels de médicaments." },
     ],
   }),
   component: Index,
 });
 
 const MODULES = [
-  { to: "/doctor", icon: Stethoscope, title: "AI Doctor", desc: "Chat médical IA capable d'agir : crée vos rappels, lance des analyses.", accent: "accent" },
+  { to: "/doctor", icon: Stethoscope, title: "AI Doctor", desc: "Chat médical IA capable d'agir : crée vos rappels, lance des analyses, trouve des pharmacies.", accent: "accent" },
   { to: "/lab", icon: FlaskConical, title: "Virtual Lab", desc: "Simulez analyses sang, urine, rein, cœur — patient virtuel.", accent: "teal" },
+  { to: "/simulation", icon: Boxes, title: "Simulation 3D", desc: "Entraînement immersif aux opérations chirurgicales guidé par IA.", accent: "primary" },
+  { to: "/pharmacy", icon: MapPin, title: "Pharmacies", desc: "Pharmacies proches, médicaments, commande, vérif. interactions.", accent: "teal" },
   { to: "/research", icon: BookOpen, title: "Recherche médicale", desc: "Synthèses scientifiques pédagogiques.", accent: "primary" },
   { to: "/reminders", icon: Bell, title: "Rappels santé", desc: "Médicaments, rendez-vous, analyses.", accent: "warning" },
 ] as const;

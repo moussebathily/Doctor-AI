@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, Stethoscope, FlaskConical, BookOpen, Bell, User, LogOut, Heart } from "lucide-react";
+import { Activity, Stethoscope, FlaskConical, BookOpen, Bell, User, LogOut, Heart, Boxes, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,8 @@ const NAV = [
   { to: "/", label: "Accueil", icon: Activity },
   { to: "/doctor", label: "Doctor AI", icon: Stethoscope },
   { to: "/lab", label: "Virtual Lab", icon: FlaskConical },
+  { to: "/simulation", label: "Simulation 3D", icon: Boxes },
+  { to: "/pharmacy", label: "Pharmacies", icon: MapPin },
   { to: "/research", label: "Recherche", icon: BookOpen },
   { to: "/reminders", label: "Rappels", icon: Bell },
 ] as const;
