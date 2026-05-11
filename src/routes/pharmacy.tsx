@@ -305,15 +305,19 @@ function PharmacyPage() {
 
             {orders.length > 0 && (
               <div className="bg-card rounded-xl border border-border p-4">
-                <h3 className="font-display font-bold text-sm mb-2">Mes commandes</h3>
-                <div className="space-y-2">
+                <h3 className="font-display font-bold text-sm mb-3">Mes commandes</h3>
+                <div className="space-y-3">
                   {orders.map((o) => (
-                    <div key={o.id} className="flex items-center justify-between text-xs p-2 rounded bg-muted">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{o.pharmacy_name}</p>
-                        <p className="text-muted-foreground">{new Date(o.created_at).toLocaleDateString("fr-FR")} • {o.total_items} items • {o.delivery_method === "delivery" ? "livraison" : "retrait"}</p>
+                    <div key={o.id} className="p-3 rounded-lg bg-muted/40 border border-border space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{o.pharmacy_name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(o.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} • {o.total_items} article(s) • {o.delivery_method === "delivery" ? "Livraison" : "Retrait"}
+                          </p>
+                        </div>
                       </div>
-                      <Badge variant={o.status === "pending" ? "secondary" : "default"} className="text-[9px]">{o.status}</Badge>
+                      <OrderStatusTimeline order={o} onAdvance={loadOrders} />
                     </div>
                   ))}
                 </div>
