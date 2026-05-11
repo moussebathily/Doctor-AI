@@ -137,6 +137,7 @@ export type Database = {
         Row: {
           created_at: string
           delivery_method: string
+          estimated_ready_at: string | null
           id: string
           items: Json
           notes: string | null
@@ -152,6 +153,7 @@ export type Database = {
         Insert: {
           created_at?: string
           delivery_method?: string
+          estimated_ready_at?: string | null
           id?: string
           items?: Json
           notes?: string | null
@@ -167,6 +169,7 @@ export type Database = {
         Update: {
           created_at?: string
           delivery_method?: string
+          estimated_ready_at?: string | null
           id?: string
           items?: Json
           notes?: string | null
@@ -237,6 +240,45 @@ export type Database = {
           time?: string | null
           title?: string
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      surgery_progress: {
+        Row: {
+          completed: boolean
+          created_at: string
+          current_step: number
+          debrief: string | null
+          errors: number
+          id: string
+          operation_id: string
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          current_step?: number
+          debrief?: string | null
+          errors?: number
+          id?: string
+          operation_id: string
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          current_step?: number
+          debrief?: string | null
+          errors?: number
+          id?: string
+          operation_id?: string
+          score?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
