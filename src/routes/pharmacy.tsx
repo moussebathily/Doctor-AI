@@ -58,7 +58,7 @@ function PharmacyPage() {
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [delivery, setDelivery] = useState<"pickup" | "delivery">("pickup");
-  const [submitting, setSubmitting] = useState(false);
+  
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [authed, setAuthed] = useState(false);
