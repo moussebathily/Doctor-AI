@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Search, ShoppingCart, Plus, Minus, Trash2, Pill, AlertTriangle, Truck, Store, Loader2, PackageCheck } from "lucide-react";
+import { CheckoutDialog, OrderStatusTimeline } from "@/components/PharmacyCheckout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +45,7 @@ type Order = {
   total_items: number;
   delivery_method: string;
   created_at: string;
+  estimated_ready_at?: string | null;
 };
 
 function PharmacyPage() {
@@ -56,7 +58,7 @@ function PharmacyPage() {
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [delivery, setDelivery] = useState<"pickup" | "delivery">("pickup");
-  const [submitting, setSubmitting] = useState(false);
+  
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [authed, setAuthed] = useState(false);
@@ -68,7 +70,7 @@ function PharmacyPage() {
   }, []);
 
   const loadOrders = async () => {
-    const { data } = await supabase.from("pharmacy_orders").select("id,pharmacy_name,status,total_items,delivery_method,created_at").order("created_at", { ascending: false }).limit(10);
+    const { data } = await supabase.from("pharmacy_orders").select("id,pharmacy_name,status,total_items,delivery_method,created_at,estimated_ready_at").order("created_at", { ascending: false }).limit(10);
     setOrders((data as Order[]) ?? []);
   };
 
@@ -128,42 +130,6 @@ function PharmacyPage() {
 
   const requiresPrescription = cart.some((i) => i.med.requires_prescription);
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
-
-  const submitOrder = async () => {
-    if (!authed) {
-      toast.error("Connectez-vous pour commander");
-      return;
-    }
-    if (!selected) {
-      toast.error("Sélectionnez une pharmacie sur la carte");
-      return;
-    }
-    if (cart.length === 0) {
-      toast.error("Panier vide");
-      return;
-    }
-    setSubmitting(true);
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("pharmacy_orders").insert({
-      user_id: u.user!.id,
-      pharmacy_name: selected.name,
-      pharmacy_address: selected.address,
-      pharmacy_lat: selected.lat,
-      pharmacy_lng: selected.lng,
-      items: cart.map((i) => ({ med_id: i.med.id, name: i.med.name, qty: i.qty, requires_prescription: i.med.requires_prescription })),
-      total_items: totalItems,
-      delivery_method: delivery,
-      status: "pending",
-    });
-    setSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Commande envoyée à la pharmacie !");
-    setCart([]);
-    loadOrders();
-  };
 
   return (
     <AppShell>
@@ -284,10 +250,18 @@ function PharmacyPage() {
                       <Truck className="w-4 h-4" />Livraison
                     </button>
                   </div>
-                  <Button onClick={submitOrder} disabled={submitting || !selected} className="w-full">
-                    {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <PackageCheck className="w-4 h-4 mr-1" />}
-                    Commander
-                  </Button>
+                  <CheckoutDialog
+                    cart={cart}
+                    pharmacy={selected}
+                    delivery={delivery}
+                    onSuccess={() => { setCart([]); loadOrders(); }}
+                    trigger={
+                      <Button disabled={!selected || !authed} className="w-full">
+                        <PackageCheck className="w-4 h-4 mr-1" />
+                        {!authed ? "Connectez-vous pour commander" : "Passer au checkout"}
+                      </Button>
+                    }
+                  />
                   {!selected && <p className="text-[11px] text-muted-foreground text-center mt-2">Sélectionnez une pharmacie d'abord</p>}
                 </>
               )}
@@ -295,15 +269,19 @@ function PharmacyPage() {
 
             {orders.length > 0 && (
               <div className="bg-card rounded-xl border border-border p-4">
-                <h3 className="font-display font-bold text-sm mb-2">Mes commandes</h3>
-                <div className="space-y-2">
+                <h3 className="font-display font-bold text-sm mb-3">Mes commandes</h3>
+                <div className="space-y-3">
                   {orders.map((o) => (
-                    <div key={o.id} className="flex items-center justify-between text-xs p-2 rounded bg-muted">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{o.pharmacy_name}</p>
-                        <p className="text-muted-foreground">{new Date(o.created_at).toLocaleDateString("fr-FR")} • {o.total_items} items • {o.delivery_method === "delivery" ? "livraison" : "retrait"}</p>
+                    <div key={o.id} className="p-3 rounded-lg bg-muted/40 border border-border space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{o.pharmacy_name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(o.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} • {o.total_items} article(s) • {o.delivery_method === "delivery" ? "Livraison" : "Retrait"}
+                          </p>
+                        </div>
                       </div>
-                      <Badge variant={o.status === "pending" ? "secondary" : "default"} className="text-[9px]">{o.status}</Badge>
+                      <OrderStatusTimeline order={o} onAdvance={loadOrders} />
                     </div>
                   ))}
                 </div>
