@@ -286,10 +286,18 @@ function PharmacyPage() {
                       <Truck className="w-4 h-4" />Livraison
                     </button>
                   </div>
-                  <Button onClick={submitOrder} disabled={submitting || !selected} className="w-full">
-                    {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <PackageCheck className="w-4 h-4 mr-1" />}
-                    Commander
-                  </Button>
+                  <CheckoutDialog
+                    cart={cart}
+                    pharmacy={selected}
+                    delivery={delivery}
+                    onSuccess={() => { setCart([]); loadOrders(); }}
+                    trigger={
+                      <Button disabled={!selected || !authed} className="w-full">
+                        <PackageCheck className="w-4 h-4 mr-1" />
+                        {!authed ? "Connectez-vous pour commander" : "Passer au checkout"}
+                      </Button>
+                    }
+                  />
                   {!selected && <p className="text-[11px] text-muted-foreground text-center mt-2">Sélectionnez une pharmacie d'abord</p>}
                 </>
               )}
