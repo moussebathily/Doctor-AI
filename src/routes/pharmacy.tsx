@@ -131,42 +131,6 @@ function PharmacyPage() {
   const requiresPrescription = cart.some((i) => i.med.requires_prescription);
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
 
-  const submitOrder = async () => {
-    if (!authed) {
-      toast.error("Connectez-vous pour commander");
-      return;
-    }
-    if (!selected) {
-      toast.error("Sélectionnez une pharmacie sur la carte");
-      return;
-    }
-    if (cart.length === 0) {
-      toast.error("Panier vide");
-      return;
-    }
-    setSubmitting(true);
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("pharmacy_orders").insert({
-      user_id: u.user!.id,
-      pharmacy_name: selected.name,
-      pharmacy_address: selected.address,
-      pharmacy_lat: selected.lat,
-      pharmacy_lng: selected.lng,
-      items: cart.map((i) => ({ med_id: i.med.id, name: i.med.name, qty: i.qty, requires_prescription: i.med.requires_prescription })),
-      total_items: totalItems,
-      delivery_method: delivery,
-      status: "pending",
-    });
-    setSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Commande envoyée à la pharmacie !");
-    setCart([]);
-    loadOrders();
-  };
-
   return (
     <AppShell>
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
