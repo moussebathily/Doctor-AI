@@ -9,6 +9,7 @@ import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft } from "lucide-react";
+import { AnatomyAtlas } from "@/components/AnatomyAtlas";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
