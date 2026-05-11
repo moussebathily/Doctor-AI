@@ -70,7 +70,7 @@ function PharmacyPage() {
   }, []);
 
   const loadOrders = async () => {
-    const { data } = await supabase.from("pharmacy_orders").select("id,pharmacy_name,status,total_items,delivery_method,created_at").order("created_at", { ascending: false }).limit(10);
+    const { data } = await supabase.from("pharmacy_orders").select("id,pharmacy_name,status,total_items,delivery_method,created_at,estimated_ready_at").order("created_at", { ascending: false }).limit(10);
     setOrders((data as Order[]) ?? []);
   };
 
