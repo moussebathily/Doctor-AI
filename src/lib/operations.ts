@@ -1,5 +1,11 @@
 // Library of guided 3D operations
-export type Step = { title: string; description: string; risks?: string };
+export type Step = {
+  title: string;
+  description: string;
+  risks?: string;
+  checklist?: string[];
+  vitalCheck?: string;
+};
 
 export type Operation = {
   id: string;
