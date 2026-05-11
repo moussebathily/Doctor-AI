@@ -9,6 +9,7 @@ import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft } from "lucide-react";
+import { AnatomyAtlas } from "@/components/AnatomyAtlas";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -199,9 +200,12 @@ function SimulationPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto p-4 md:p-8">
-        <div className="mb-6">
-          <h1 className="font-display font-bold text-2xl md:text-3xl">Simulation 3D d'opérations</h1>
-          <p className="text-muted-foreground text-sm mt-1">Entraînement immersif guidé par IA — étudiants et professionnels.</p>
+        <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-display font-bold text-2xl md:text-3xl">Simulation 3D d'opérations</h1>
+            <p className="text-muted-foreground text-sm mt-1">Entraînement immersif guidé par IA — étudiants et professionnels.</p>
+          </div>
+          <AnatomyAtlas />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
