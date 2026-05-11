@@ -45,6 +45,7 @@ type Order = {
   total_items: number;
   delivery_method: string;
   created_at: string;
+  estimated_ready_at?: string | null;
 };
 
 function PharmacyPage() {
