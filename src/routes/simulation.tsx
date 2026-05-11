@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 
 export const Route = createFileRoute("/simulation")({
+  validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
   head: () => ({
     meta: [
       { title: "Simulation 3D — Doctor AI" },
