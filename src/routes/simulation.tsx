@@ -238,8 +238,8 @@ function SimulationPage() {
                   <p className="text-sm text-foreground/90 leading-relaxed mb-3">{step.description}</p>
 
                   {step.vitalCheck && (
-                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-info/10 border border-info/30 text-xs mb-3">
-                      <Activity className="w-3.5 h-3.5 text-info shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-accent/10 border border-accent/30 text-xs mb-3">
+                      <Activity className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
                       <span><strong>Surveillance :</strong> {step.vitalCheck}</span>
                     </div>
                   )}
