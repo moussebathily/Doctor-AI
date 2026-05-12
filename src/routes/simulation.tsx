@@ -149,6 +149,7 @@ function SimulationPage() {
     setStepIdx(newStep);
     setAiTip("");
     setChecked({});
+    speak(`Étape ${newStep + 1}. ${selected.steps[newStep].title}.`);
     persistProgress(selected, { current_step: newStep, errors, score, completed: false });
   };
 
