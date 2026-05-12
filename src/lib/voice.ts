@@ -1,9 +1,11 @@
 // Lightweight Web Speech wrapper (recognition + synthesis).
 // SSR-safe: every API check is guarded.
 
-type SR = typeof window extends { SpeechRecognition: infer T } ? T : any;
-
 export function getSpeechRecognition(): any | null {
+  if (typeof window === "undefined") return null;
+  const w = window as any;
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+}
   if (typeof window === "undefined") return null;
   const w = window as any;
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
