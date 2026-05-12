@@ -165,6 +165,17 @@ function PharmacyPage() {
           <p className="text-muted-foreground text-sm mt-1">Trouvez une pharmacie proche, commandez en ligne, vérifiez les interactions.</p>
         </div>
 
+        {prefill && (
+          <div className="rounded-xl border border-teal/40 bg-teal/5 p-4 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-teal shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-teal">Traitement préparé depuis la simulation</p>
+              <p className="text-muted-foreground text-xs">{prefill.reason}</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setPrefill(null)}>×</Button>
+          </div>
+        )}
+
         {/* Map + actions */}
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-3">
