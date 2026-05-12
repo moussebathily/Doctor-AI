@@ -10,10 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Search, ShoppingCart, Plus, Minus, Trash2, Pill, AlertTriangle, Truck, Store, Loader2, PackageCheck } from "lucide-react";
+import { MapPin, Search, ShoppingCart, Plus, Minus, Trash2, Pill, AlertTriangle, Truck, Store, Loader2, PackageCheck, Sparkles } from "lucide-react";
 import { CheckoutDialog, OrderStatusTimeline } from "@/components/PharmacyCheckout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { consumePharmacyPrefill, type PharmacyPrefill } from "@/lib/sim-bridge";
 
 export const Route = createFileRoute("/pharmacy")({
   head: () => ({
