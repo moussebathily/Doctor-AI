@@ -446,8 +446,12 @@ function SimulationPage() {
           <div>
             <h1 className="font-display font-bold text-2xl md:text-3xl">Simulation 3D d'opérations</h1>
             <p className="text-muted-foreground text-sm mt-1">Entraînement immersif guidé par IA — étudiants et professionnels.</p>
+            <p className="text-[11px] text-muted-foreground mt-1">💡 Essayez : <em>« Montre-moi opération du cœur »</em></p>
           </div>
-          <AnatomyAtlas />
+          <div className="flex gap-2 flex-wrap">
+            <VoiceCommand onLaunch={launchById} />
+            <AnatomyAtlas />
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
