@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -9,12 +9,18 @@ import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft, Activity, ListChecks, PlayCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft, Activity, ListChecks, PlayCircle, Star, Clock, Box, ShoppingBag, Volume2 } from "lucide-react";
 import { AnatomyAtlas } from "@/components/AnatomyAtlas";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { PatientMonitor, DEFAULT_VITALS } from "@/components/PatientMonitor";
+import { PatientGenerator, DEFAULT_PATIENT, type PatientProfile } from "@/components/PatientGenerator";
+import { VoiceCommand } from "@/components/VoiceCommand";
+import { setPharmacyPrefill, DEFAULT_TREATMENTS } from "@/lib/sim-bridge";
+import { speak } from "@/lib/voice";
 
 export const Route = createFileRoute("/simulation")({
   validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
