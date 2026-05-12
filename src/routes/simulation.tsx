@@ -229,22 +229,79 @@ function SimulationPage() {
     const allChecked = (step.checklist ?? []).every((_, i) => checked[i]);
     return (
       <AppShell>
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-              <ArrowLeft className="w-4 h-4 mr-1" /> Quitter
-            </Button>
-            <div className="flex-1">
-              <h1 className="font-display font-bold text-xl md:text-2xl">{selected.name}</h1>
-              <p className="text-xs text-muted-foreground">{selected.organLabel}</p>
+        <div className="max-w-7xl mx-auto p-4 md:p-6">
+          {/* Operating-theatre header */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
+            <div className="col-span-2 rounded-xl border border-border bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3 flex items-center gap-3">
+              <Button variant="ghost" size="sm" className="text-white/90 hover:bg-white/10 hover:text-white" onClick={() => setSelected(null)}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400/90 font-semibold">Opération</p>
+                <p className="font-display font-bold text-sm md:text-base truncate">{selected.name}</p>
+              </div>
+              <span className="ml-auto w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="REC" />
             </div>
-            <Badge variant="outline" className="text-sm">Score : <span className="font-bold ml-1">{score}</span></Badge>
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Temps</p>
+                <p className="font-mono font-bold text-base md:text-lg leading-none">{fmtTime(elapsed)}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-warning" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Score</p>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono font-bold text-base">{score}</span>
+                  <span className="flex">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={cn("w-3 h-3", i < stars ? "fill-warning text-warning" : "text-muted")} />
+                    ))}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+              <ListChecks className="w-4 h-4 text-teal" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Étape</p>
+                <p className="font-mono font-bold text-base">{stepIdx + 1}/{selected.steps.length}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3">
-              <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}><Suspense fallback={null}><HumanBody3D highlightOrgan={selected.organ} /></Suspense></ClientOnly>
-              <p className="text-[11px] text-muted-foreground mt-2 text-center">Glissez pour pivoter • Molette pour zoomer</p>
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <PatientGenerator current={patient} onGenerated={setPatient} />
+            <Badge variant="secondary" className="text-[10px]">
+              {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
+            </Badge>
+            <div className="flex items-center gap-1 ml-auto">
+              <Box className="w-4 h-4 text-muted-foreground" />
+              <Input
+                value={glbUrl}
+                onChange={(e) => setGlbUrl(e.target.value)}
+                placeholder="URL .glb (Meshy/Mixamo)…"
+                className="h-8 w-[220px] text-xs"
+              />
+              <Button size="sm" variant="outline" onClick={() => setActiveGlb(glbUrl.trim() || null)}>
+                {activeGlb ? "Recharger" : "Charger"}
+              </Button>
+              {activeGlb && <Button size="sm" variant="ghost" onClick={() => setActiveGlb(null)}>Stylisé</Button>}
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-4 md:gap-6">
+            <div className="lg:col-span-3 space-y-3">
+              <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}>
+                <Suspense fallback={null}>
+                  <HumanBody3D highlightOrgan={selected.organ} glbUrl={activeGlb} />
+                </Suspense>
+              </ClientOnly>
+              <PatientMonitor baseVitals={patient.vitals ?? DEFAULT_VITALS} alert={!!step.risks && stepIdx >= 2} />
+              <p className="text-[11px] text-muted-foreground text-center">Glissez pour pivoter • Molette pour zoomer • Cliquez sur les organes</p>
             </div>
 
             <div className="lg:col-span-2 space-y-4">
