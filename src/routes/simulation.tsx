@@ -383,10 +383,22 @@ function SimulationPage() {
                   <div className="bg-gradient-to-br from-teal/20 to-accent/10 rounded-xl border border-teal/40 p-6 text-center">
                     <Trophy className="w-12 h-12 text-teal mx-auto mb-3" />
                     <h3 className="font-display font-bold text-2xl mb-1">Opération terminée !</h3>
-                    <p className="text-sm text-muted-foreground mb-3">Score final : <strong className="text-foreground">{score}/100</strong> • {errors} erreur(s)</p>
-                    <div className="flex gap-2 justify-center">
+                    <p className="text-sm text-muted-foreground mb-3">Score final : <strong className="text-foreground">{score}/100</strong> • {errors} erreur(s) • {fmtTime(elapsed)}</p>
+                    <div className="flex gap-2 justify-center flex-wrap">
                       <Button variant="outline" onClick={() => launch(selected)}><RotateCcw className="w-4 h-4 mr-1" />Recommencer</Button>
-                      <Button onClick={() => setSelected(null)}>Autre opération</Button>
+                      <Button variant="outline" onClick={() => setSelected(null)}>Autre opération</Button>
+                      <Button
+                        className="bg-teal hover:bg-teal/90 text-teal-foreground"
+                        onClick={() => {
+                          const t = DEFAULT_TREATMENTS[selected.id];
+                          if (!t) { toast.info("Aucun protocole post-op pré-défini"); return; }
+                          setPharmacyPrefill({ reason: t.reason, searchTerms: t.terms });
+                          toast.success("Panier pharmacie pré-rempli");
+                          navigate({ to: "/pharmacy" });
+                        }}
+                      >
+                        <ShoppingBag className="w-4 h-4 mr-1" />Commander le traitement
+                      </Button>
                     </div>
                   </div>
 
