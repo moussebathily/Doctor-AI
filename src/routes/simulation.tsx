@@ -127,6 +127,14 @@ function SimulationPage() {
     }
     setChecked({});
     setAiTip("");
+    setElapsed(0);
+    startedAt.current = Date.now();
+    speak(`Lancement de ${op.name}. Étape 1, ${op.steps[0].title}.`);
+  };
+
+  const launchById = (id: string) => {
+    const op = OPERATIONS.find((o) => o.id === id);
+    if (op) launch(op);
   };
 
   const next = () => {
