@@ -1,9 +1,31 @@
 import { Suspense, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html, Environment } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
 import * as THREE from "three";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
+
+// Load and display an external GLB model (anatomy/surgery model).
+// Auto-centered and scaled to fit the viewport. Subtle breathing animation.
+function GLBModel({ url, breathing = true }: { url: string; breathing?: boolean }) {
+  const { scene } = useGLTF(url);
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    ref.current.rotation.y += delta * 0.15;
+    if (breathing) {
+      const s = 1 + Math.sin(performance.now() / 900) * 0.02;
+      ref.current.scale.set(s, s, s);
+    }
+  });
+  return (
+    <Center>
+      <group ref={ref}>
+        <primitive object={scene} />
+      </group>
+    </Center>
+  );
+}
 
 function Organ({
   position,
