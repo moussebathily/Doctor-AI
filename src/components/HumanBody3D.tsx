@@ -1,9 +1,31 @@
 import { Suspense, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html, Environment } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
 import * as THREE from "three";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
+
+// Load and display an external GLB model (anatomy/surgery model).
+// Auto-centered and scaled to fit the viewport. Subtle breathing animation.
+function GLBModel({ url, breathing = true }: { url: string; breathing?: boolean }) {
+  const { scene } = useGLTF(url);
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    ref.current.rotation.y += delta * 0.15;
+    if (breathing) {
+      const s = 1 + Math.sin(performance.now() / 900) * 0.02;
+      ref.current.scale.set(s, s, s);
+    }
+  });
+  return (
+    <Center>
+      <group ref={ref}>
+        <primitive object={scene} />
+      </group>
+    </Center>
+  );
+}
 
 function Organ({
   position,
@@ -94,46 +116,52 @@ function BodySilhouette() {
 export function HumanBody3D({
   highlightOrgan,
   onSelectOrgan,
+  glbUrl,
+  height = "h-[420px] md:h-[520px]",
 }: {
   highlightOrgan?: OrganKey | null;
   onSelectOrgan?: (organ: OrganKey) => void;
+  glbUrl?: string | null;
+  height?: string;
 }) {
   const [hover, setHover] = useState<OrganKey | null>(null);
   const isHighlighted = (k: OrganKey) => highlightOrgan === k || hover === k;
 
   return (
-    <div className="w-full h-[420px] md:h-[520px] rounded-2xl overflow-hidden bg-gradient-to-b from-slate-900 to-slate-700 border border-border">
+    <div className={`w-full ${height} rounded-2xl overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border border-border relative`}>
       <Canvas camera={{ position: [0, 0.4, 3.2], fov: 45 }} shadows>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[3, 5, 4]} intensity={1.1} castShadow />
-        <pointLight position={[-3, 2, -2]} intensity={0.5} color="#5cbdb9" />
+        <ambientLight intensity={0.45} />
+        <directionalLight position={[3, 5, 4]} intensity={1.2} castShadow />
+        <pointLight position={[-3, 2, -2]} intensity={0.6} color="#5cbdb9" />
         <Suspense fallback={null}>
           <Environment preset="studio" />
-          <BodySilhouette />
-          {/* Brain */}
-          <group onPointerOver={() => setHover("brain")} onPointerOut={() => setHover(null)}>
-            <Organ position={[0, 1.42, 0.05]} color="#f3a5c0" scale={0.9} highlighted={isHighlighted("brain")} onClick={() => onSelectOrgan?.("brain")} label="Cerveau" />
-          </group>
-          {/* Heart */}
-          <group onPointerOver={() => setHover("heart")} onPointerOut={() => setHover(null)}>
-            <Organ position={[-0.12, 0.65, 0.18]} color="#e94560" scale={1.1} highlighted={isHighlighted("heart")} onClick={() => onSelectOrgan?.("heart")} label="Cœur" />
-          </group>
-          {/* Lungs */}
-          <group onPointerOver={() => setHover("lung")} onPointerOut={() => setHover(null)}>
-            <Organ position={[-0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => onSelectOrgan?.("lung")} label="Poumons" />
-            <Organ position={[0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => onSelectOrgan?.("lung")} label="Poumons" />
-          </group>
-          {/* Appendix - lower right abdomen */}
-          <group onPointerOver={() => setHover("appendix")} onPointerOut={() => setHover(null)}>
-            <Organ position={[0.22, -0.05, 0.18]} color="#f59e0b" scale={0.6} highlighted={isHighlighted("appendix")} onClick={() => onSelectOrgan?.("appendix")} label="Appendice" />
-          </group>
-          {/* Bone (tibia leg) */}
-          <group onPointerOver={() => setHover("bone")} onPointerOut={() => setHover(null)}>
-            <Organ position={[0.25, -1.15, 0.05]} color="#f5f0e8" scale={0.9} shape="cylinder" highlighted={isHighlighted("bone")} onClick={() => onSelectOrgan?.("bone")} label="Tibia" />
-          </group>
-          <OrbitControls enablePan={false} minDistance={2} maxDistance={6} target={[0, 0.3, 0]} />
+          {glbUrl ? (
+            <GLBModel url={glbUrl} />
+          ) : (
+            <>
+              <BodySilhouette />
+              <group onPointerOver={() => setHover("brain")} onPointerOut={() => setHover(null)}>
+                <Organ position={[0, 1.42, 0.05]} color="#f3a5c0" scale={0.9} highlighted={isHighlighted("brain")} onClick={() => onSelectOrgan?.("brain")} label="Cerveau" />
+              </group>
+              <group onPointerOver={() => setHover("heart")} onPointerOut={() => setHover(null)}>
+                <Organ position={[-0.12, 0.65, 0.18]} color="#e94560" scale={1.1} highlighted={isHighlighted("heart")} onClick={() => onSelectOrgan?.("heart")} label="Cœur" />
+              </group>
+              <group onPointerOver={() => setHover("lung")} onPointerOut={() => setHover(null)}>
+                <Organ position={[-0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => onSelectOrgan?.("lung")} label="Poumons" />
+                <Organ position={[0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => onSelectOrgan?.("lung")} label="Poumons" />
+              </group>
+              <group onPointerOver={() => setHover("appendix")} onPointerOut={() => setHover(null)}>
+                <Organ position={[0.22, -0.05, 0.18]} color="#f59e0b" scale={0.6} highlighted={isHighlighted("appendix")} onClick={() => onSelectOrgan?.("appendix")} label="Appendice" />
+              </group>
+              <group onPointerOver={() => setHover("bone")} onPointerOut={() => setHover(null)}>
+                <Organ position={[0.25, -1.15, 0.05]} color="#f5f0e8" scale={0.9} shape="cylinder" highlighted={isHighlighted("bone")} onClick={() => onSelectOrgan?.("bone")} label="Tibia" />
+              </group>
+            </>
+          )}
+          <OrbitControls enablePan={false} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />
         </Suspense>
       </Canvas>
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -9,12 +9,18 @@ import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft, Activity, ListChecks, PlayCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft, Activity, ListChecks, PlayCircle, Star, Clock, Box, ShoppingBag, Volume2 } from "lucide-react";
 import { AnatomyAtlas } from "@/components/AnatomyAtlas";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { PatientMonitor, DEFAULT_VITALS } from "@/components/PatientMonitor";
+import { PatientGenerator, DEFAULT_PATIENT, type PatientProfile } from "@/components/PatientGenerator";
+import { VoiceCommand } from "@/components/VoiceCommand";
+import { setPharmacyPrefill, DEFAULT_TREATMENTS } from "@/lib/sim-bridge";
+import { speak } from "@/lib/voice";
 
 export const Route = createFileRoute("/simulation")({
   validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
@@ -37,6 +43,7 @@ type ProgressRow = {
 };
 
 function SimulationPage() {
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<Operation | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
   const [errors, setErrors] = useState(0);
@@ -48,8 +55,24 @@ function SimulationPage() {
   const [debriefLoading, setDebriefLoading] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
   const [autoPreselect, setAutoPreselect] = useState<string | null>(null);
+  const [patient, setPatient] = useState<PatientProfile>(DEFAULT_PATIENT);
+  const [glbUrl, setGlbUrl] = useState<string>("");
+  const [activeGlb, setActiveGlb] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0); // seconds
+  const startedAt = useRef<number | null>(null);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
+  const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
+  const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  // Chrono
+  useEffect(() => {
+    if (!selected || completed) return;
+    if (startedAt.current === null) startedAt.current = Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - (startedAt.current ?? Date.now())) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [selected, completed]);
+
 
   // Load existing progress
   useEffect(() => {
@@ -104,6 +127,14 @@ function SimulationPage() {
     }
     setChecked({});
     setAiTip("");
+    setElapsed(0);
+    startedAt.current = Date.now();
+    speak(`Lancement de ${op.name}. Étape 1, ${op.steps[0].title}.`);
+  };
+
+  const launchById = (id: string) => {
+    const op = OPERATIONS.find((o) => o.id === id);
+    if (op) launch(op);
   };
 
   const next = () => {
@@ -118,6 +149,7 @@ function SimulationPage() {
     setStepIdx(newStep);
     setAiTip("");
     setChecked({});
+    speak(`Étape ${newStep + 1}. ${selected.steps[newStep].title}.`);
     persistProgress(selected, { current_step: newStep, errors, score, completed: false });
   };
 
@@ -198,22 +230,79 @@ function SimulationPage() {
     const allChecked = (step.checklist ?? []).every((_, i) => checked[i]);
     return (
       <AppShell>
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-              <ArrowLeft className="w-4 h-4 mr-1" /> Quitter
-            </Button>
-            <div className="flex-1">
-              <h1 className="font-display font-bold text-xl md:text-2xl">{selected.name}</h1>
-              <p className="text-xs text-muted-foreground">{selected.organLabel}</p>
+        <div className="max-w-7xl mx-auto p-4 md:p-6">
+          {/* Operating-theatre header */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
+            <div className="col-span-2 rounded-xl border border-border bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3 flex items-center gap-3">
+              <Button variant="ghost" size="sm" className="text-white/90 hover:bg-white/10 hover:text-white" onClick={() => setSelected(null)}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400/90 font-semibold">Opération</p>
+                <p className="font-display font-bold text-sm md:text-base truncate">{selected.name}</p>
+              </div>
+              <span className="ml-auto w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="REC" />
             </div>
-            <Badge variant="outline" className="text-sm">Score : <span className="font-bold ml-1">{score}</span></Badge>
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Temps</p>
+                <p className="font-mono font-bold text-base md:text-lg leading-none">{fmtTime(elapsed)}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-warning" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Score</p>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono font-bold text-base">{score}</span>
+                  <span className="flex">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={cn("w-3 h-3", i < stars ? "fill-warning text-warning" : "text-muted")} />
+                    ))}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+              <ListChecks className="w-4 h-4 text-teal" />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Étape</p>
+                <p className="font-mono font-bold text-base">{stepIdx + 1}/{selected.steps.length}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3">
-              <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}><Suspense fallback={null}><HumanBody3D highlightOrgan={selected.organ} /></Suspense></ClientOnly>
-              <p className="text-[11px] text-muted-foreground mt-2 text-center">Glissez pour pivoter • Molette pour zoomer</p>
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <PatientGenerator current={patient} onGenerated={setPatient} />
+            <Badge variant="secondary" className="text-[10px]">
+              {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
+            </Badge>
+            <div className="flex items-center gap-1 ml-auto">
+              <Box className="w-4 h-4 text-muted-foreground" />
+              <Input
+                value={glbUrl}
+                onChange={(e) => setGlbUrl(e.target.value)}
+                placeholder="URL .glb (Meshy/Mixamo)…"
+                className="h-8 w-[220px] text-xs"
+              />
+              <Button size="sm" variant="outline" onClick={() => setActiveGlb(glbUrl.trim() || null)}>
+                {activeGlb ? "Recharger" : "Charger"}
+              </Button>
+              {activeGlb && <Button size="sm" variant="ghost" onClick={() => setActiveGlb(null)}>Stylisé</Button>}
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-4 md:gap-6">
+            <div className="lg:col-span-3 space-y-3">
+              <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}>
+                <Suspense fallback={null}>
+                  <HumanBody3D highlightOrgan={selected.organ} glbUrl={activeGlb} />
+                </Suspense>
+              </ClientOnly>
+              <PatientMonitor baseVitals={patient.vitals ?? DEFAULT_VITALS} alert={!!step.risks && stepIdx >= 2} />
+              <p className="text-[11px] text-muted-foreground text-center">Glissez pour pivoter • Molette pour zoomer • Cliquez sur les organes</p>
             </div>
 
             <div className="lg:col-span-2 space-y-4">
@@ -278,8 +367,11 @@ function SimulationPage() {
                     <Button onClick={next} disabled={!!step.checklist?.length && !allChecked} className="flex-1" title={!allChecked ? "Cochez tous les items" : ""}>
                       <CheckCircle2 className="w-4 h-4 mr-1" /> Valider
                     </Button>
-                    <Button variant="outline" onClick={askAI} disabled={aiLoading}>
+                    <Button variant="outline" onClick={askAI} disabled={aiLoading} title="Conseil IA">
                       <Sparkles className="w-4 h-4 mr-1" />{aiLoading ? "..." : "IA"}
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => speak(`Étape ${stepIdx + 1}. ${step.title}. ${step.description}`)} title="Lire l'étape">
+                      <Volume2 className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" onClick={skip} className="text-muted-foreground">Sauter</Button>
                   </div>
@@ -292,10 +384,22 @@ function SimulationPage() {
                   <div className="bg-gradient-to-br from-teal/20 to-accent/10 rounded-xl border border-teal/40 p-6 text-center">
                     <Trophy className="w-12 h-12 text-teal mx-auto mb-3" />
                     <h3 className="font-display font-bold text-2xl mb-1">Opération terminée !</h3>
-                    <p className="text-sm text-muted-foreground mb-3">Score final : <strong className="text-foreground">{score}/100</strong> • {errors} erreur(s)</p>
-                    <div className="flex gap-2 justify-center">
+                    <p className="text-sm text-muted-foreground mb-3">Score final : <strong className="text-foreground">{score}/100</strong> • {errors} erreur(s) • {fmtTime(elapsed)}</p>
+                    <div className="flex gap-2 justify-center flex-wrap">
                       <Button variant="outline" onClick={() => launch(selected)}><RotateCcw className="w-4 h-4 mr-1" />Recommencer</Button>
-                      <Button onClick={() => setSelected(null)}>Autre opération</Button>
+                      <Button variant="outline" onClick={() => setSelected(null)}>Autre opération</Button>
+                      <Button
+                        className="bg-teal hover:bg-teal/90 text-teal-foreground"
+                        onClick={() => {
+                          const t = DEFAULT_TREATMENTS[selected.id];
+                          if (!t) { toast.info("Aucun protocole post-op pré-défini"); return; }
+                          setPharmacyPrefill({ reason: t.reason, searchTerms: t.terms });
+                          toast.success("Panier pharmacie pré-rempli");
+                          navigate({ to: "/pharmacy" });
+                        }}
+                      >
+                        <ShoppingBag className="w-4 h-4 mr-1" />Commander le traitement
+                      </Button>
                     </div>
                   </div>
 
@@ -343,8 +447,12 @@ function SimulationPage() {
           <div>
             <h1 className="font-display font-bold text-2xl md:text-3xl">Simulation 3D d'opérations</h1>
             <p className="text-muted-foreground text-sm mt-1">Entraînement immersif guidé par IA — étudiants et professionnels.</p>
+            <p className="text-[11px] text-muted-foreground mt-1">💡 Essayez : <em>« Montre-moi opération du cœur »</em></p>
           </div>
-          <AnatomyAtlas />
+          <div className="flex gap-2 flex-wrap">
+            <VoiceCommand onLaunch={launchById} />
+            <AnatomyAtlas />
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">

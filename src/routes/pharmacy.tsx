@@ -10,10 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Search, ShoppingCart, Plus, Minus, Trash2, Pill, AlertTriangle, Truck, Store, Loader2, PackageCheck } from "lucide-react";
+import { MapPin, Search, ShoppingCart, Plus, Minus, Trash2, Pill, AlertTriangle, Truck, Store, Loader2, PackageCheck, Sparkles } from "lucide-react";
 import { CheckoutDialog, OrderStatusTimeline } from "@/components/PharmacyCheckout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { consumePharmacyPrefill, type PharmacyPrefill } from "@/lib/sim-bridge";
 
 export const Route = createFileRoute("/pharmacy")({
   head: () => ({
@@ -62,10 +63,35 @@ function PharmacyPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [authed, setAuthed] = useState(false);
+  const [prefill, setPrefill] = useState<PharmacyPrefill | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user));
-    supabase.from("medications").select("*").order("name").then(({ data }) => setMeds((data as Med[]) ?? []));
+    supabase.from("medications").select("*").order("name").then(({ data }) => {
+      const list = (data as Med[]) ?? [];
+      setMeds(list);
+      // Consume prefill from simulation → auto-add matching meds
+      const pf = consumePharmacyPrefill();
+      if (pf && list.length) {
+        const added: Med[] = [];
+        for (const term of pf.searchTerms) {
+          const t = term.toLowerCase();
+          const match = list.find(
+            (m) =>
+              !added.some((a) => a.id === m.id) &&
+              (m.name.toLowerCase().includes(t) ||
+                (m.generic_name ?? "").toLowerCase().includes(t) ||
+                (m.category ?? "").toLowerCase().includes(t)),
+          );
+          if (match) added.push(match);
+        }
+        if (added.length) {
+          setCart(added.map((m) => ({ med: m, qty: 1 })));
+          setPrefill(pf);
+          toast.success(`${added.length} médicament(s) ajouté(s) depuis la simulation`);
+        }
+      }
+    });
     loadOrders();
   }, []);
 
@@ -138,6 +164,17 @@ function PharmacyPage() {
           <h1 className="font-display font-bold text-2xl md:text-3xl">Pharmacies & médicaments</h1>
           <p className="text-muted-foreground text-sm mt-1">Trouvez une pharmacie proche, commandez en ligne, vérifiez les interactions.</p>
         </div>
+
+        {prefill && (
+          <div className="rounded-xl border border-teal/40 bg-teal/5 p-4 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-teal shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-teal">Traitement préparé depuis la simulation</p>
+              <p className="text-muted-foreground text-xs">{prefill.reason}</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setPrefill(null)}>×</Button>
+          </div>
+        )}
 
         {/* Map + actions */}
         <div className="grid lg:grid-cols-3 gap-6">
