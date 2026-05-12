@@ -43,6 +43,7 @@ type ProgressRow = {
 };
 
 function SimulationPage() {
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<Operation | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
   const [errors, setErrors] = useState(0);
@@ -54,8 +55,24 @@ function SimulationPage() {
   const [debriefLoading, setDebriefLoading] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
   const [autoPreselect, setAutoPreselect] = useState<string | null>(null);
+  const [patient, setPatient] = useState<PatientProfile>(DEFAULT_PATIENT);
+  const [glbUrl, setGlbUrl] = useState<string>("");
+  const [activeGlb, setActiveGlb] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0); // seconds
+  const startedAt = useRef<number | null>(null);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
+  const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
+  const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  // Chrono
+  useEffect(() => {
+    if (!selected || completed) return;
+    if (startedAt.current === null) startedAt.current = Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - (startedAt.current ?? Date.now())) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [selected, completed]);
+
 
   // Load existing progress
   useEffect(() => {
