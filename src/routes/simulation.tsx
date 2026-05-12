@@ -366,8 +366,11 @@ function SimulationPage() {
                     <Button onClick={next} disabled={!!step.checklist?.length && !allChecked} className="flex-1" title={!allChecked ? "Cochez tous les items" : ""}>
                       <CheckCircle2 className="w-4 h-4 mr-1" /> Valider
                     </Button>
-                    <Button variant="outline" onClick={askAI} disabled={aiLoading}>
+                    <Button variant="outline" onClick={askAI} disabled={aiLoading} title="Conseil IA">
                       <Sparkles className="w-4 h-4 mr-1" />{aiLoading ? "..." : "IA"}
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => speak(`Étape ${stepIdx + 1}. ${step.title}. ${step.description}`)} title="Lire l'étape">
+                      <Volume2 className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" onClick={skip} className="text-muted-foreground">Sauter</Button>
                   </div>
