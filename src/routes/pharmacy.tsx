@@ -63,10 +63,35 @@ function PharmacyPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [authed, setAuthed] = useState(false);
+  const [prefill, setPrefill] = useState<PharmacyPrefill | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user));
-    supabase.from("medications").select("*").order("name").then(({ data }) => setMeds((data as Med[]) ?? []));
+    supabase.from("medications").select("*").order("name").then(({ data }) => {
+      const list = (data as Med[]) ?? [];
+      setMeds(list);
+      // Consume prefill from simulation → auto-add matching meds
+      const pf = consumePharmacyPrefill();
+      if (pf && list.length) {
+        const added: Med[] = [];
+        for (const term of pf.searchTerms) {
+          const t = term.toLowerCase();
+          const match = list.find(
+            (m) =>
+              !added.some((a) => a.id === m.id) &&
+              (m.name.toLowerCase().includes(t) ||
+                (m.generic_name ?? "").toLowerCase().includes(t) ||
+                (m.category ?? "").toLowerCase().includes(t)),
+          );
+          if (match) added.push(match);
+        }
+        if (added.length) {
+          setCart(added.map((m) => ({ med: m, qty: 1 })));
+          setPrefill(pf);
+          toast.success(`${added.length} médicament(s) ajouté(s) depuis la simulation`);
+        }
+      }
+    });
     loadOrders();
   }, []);
 
