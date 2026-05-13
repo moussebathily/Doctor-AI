@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 import { PatientMonitor, DEFAULT_VITALS } from "@/components/PatientMonitor";
-import { PatientGenerator, DEFAULT_PATIENT, type PatientProfile } from "@/components/PatientGenerator";
+import { PatientGenerator, DEFAULT_PATIENT, generatePatientScenario, type PatientProfile } from "@/components/PatientGenerator";
 import { VoiceCommand } from "@/components/VoiceCommand";
 import { setPharmacyPrefill, DEFAULT_TREATMENTS } from "@/lib/sim-bridge";
 import { speak } from "@/lib/voice";
@@ -40,6 +40,8 @@ type ProgressRow = {
   score: number;
   completed: boolean;
   debrief: string | null;
+  elapsed_seconds?: number;
+  patient?: PatientProfile | null;
 };
 
 function SimulationPage() {
@@ -60,6 +62,7 @@ function SimulationPage() {
   const [activeGlb, setActiveGlb] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0); // seconds
   const startedAt = useRef<number | null>(null);
+  const [regenLoading, setRegenLoading] = useState(false);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
   const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
@@ -79,7 +82,7 @@ function SimulationPage() {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
-      const { data } = await supabase.from("surgery_progress").select("operation_id,current_step,errors,score,completed,debrief").eq("user_id", u.user.id);
+      const { data } = await supabase.from("surgery_progress").select("operation_id,current_step,errors,score,completed,debrief,elapsed_seconds,patient").eq("user_id", u.user.id);
       const map: Record<string, ProgressRow> = {};
       (data ?? []).forEach((r) => (map[r.operation_id] = r as ProgressRow));
       setProgressMap(map);
@@ -98,14 +101,46 @@ function SimulationPage() {
       const o = OPERATIONS.find((x) => x.id === autoPreselect);
       if (o) launch(o);
       setAutoPreselect(null);
+      return;
     }
+    // Auto-resume most recent in-progress simulation on reload
+    if (selected) return;
+    const inProgress = Object.values(progressMap).filter((p) => !p.completed && p.current_step > 0);
+    if (inProgress.length === 0) return;
+    const op = OPERATIONS.find((o) => o.id === inProgress[0].operation_id);
+    if (op) launch(op, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPreselect]);
+  }, [autoPreselect, progressMap]);
+
+  // Periodic auto-save (time + patient state) every 10s while running
+  useEffect(() => {
+    if (!selected || completed) return;
+    const t = setInterval(() => {
+      persistProgress(selected, { elapsed_seconds: elapsed, patient, current_step: stepIdx, errors, score, completed: false });
+    }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, completed, elapsed, patient, stepIdx, errors, score]);
+
+  // Save on tab close / hide
+  useEffect(() => {
+    if (!selected || completed) return;
+    const handler = () => {
+      persistProgress(selected, { elapsed_seconds: elapsed, patient, current_step: stepIdx, errors, score, completed: false });
+    };
+    window.addEventListener("beforeunload", handler);
+    document.addEventListener("visibilitychange", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      document.removeEventListener("visibilitychange", handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, completed, elapsed, patient, stepIdx, errors, score]);
 
   const persistProgress = async (op: Operation, patch: Partial<ProgressRow>) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const base = progressMap[op.id] ?? { operation_id: op.id, current_step: 0, errors: 0, score: 100, completed: false, debrief: null };
+    const base = progressMap[op.id] ?? { operation_id: op.id, current_step: 0, errors: 0, score: 100, completed: false, debrief: null, elapsed_seconds: 0, patient: null };
     const next = { ...base, ...patch };
     setProgressMap((m) => ({ ...m, [op.id]: next }));
     await supabase.from("surgery_progress").upsert({ user_id: u.user.id, ...next }, { onConflict: "user_id,operation_id" });
@@ -119,17 +154,22 @@ function SimulationPage() {
       setErrors(saved.errors);
       setCompleted(false);
       setDebrief(saved.debrief ?? "");
+      setElapsed(saved.elapsed_seconds ?? 0);
+      startedAt.current = Date.now() - (saved.elapsed_seconds ?? 0) * 1000;
+      if (saved.patient) setPatient(saved.patient);
+      toast.success(`Reprise — étape ${saved.current_step + 1}`);
+      speak(`Reprise de ${op.name}, étape ${saved.current_step + 1}.`);
     } else {
       setStepIdx(0);
       setErrors(0);
       setCompleted(false);
       setDebrief("");
+      setElapsed(0);
+      startedAt.current = Date.now();
+      speak(`Lancement de ${op.name}. Étape 1, ${op.steps[0].title}.`);
     }
     setChecked({});
     setAiTip("");
-    setElapsed(0);
-    startedAt.current = Date.now();
-    speak(`Lancement de ${op.name}. Étape 1, ${op.steps[0].title}.`);
   };
 
   const launchById = (id: string) => {
@@ -275,7 +315,28 @@ function SimulationPage() {
 
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <PatientGenerator current={patient} onGenerated={setPatient} />
+            <PatientGenerator current={patient} onGenerated={(p) => { setPatient(p); if (selected) persistProgress(selected, { patient: p }); }} />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={regenLoading}
+              onClick={async () => {
+                setRegenLoading(true);
+                try {
+                  const p = await generatePatientScenario({ age: patient.age, sex: patient.sex, condition: patient.condition, weightKg: patient.weightKg });
+                  setPatient(p);
+                  if (selected) persistProgress(selected, { patient: p });
+                  toast.success("Nouveau scénario patient — moniteur mis à jour");
+                } catch {
+                  toast.error("Échec régénération");
+                } finally {
+                  setRegenLoading(false);
+                }
+              }}
+              title="Régénérer un patient avec les mêmes symptômes"
+            >
+              <RotateCcw className={cn("w-4 h-4 mr-1.5", regenLoading && "animate-spin")} /> Générer encore
+            </Button>
             <Badge variant="secondary" className="text-[10px]">
               {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
             </Badge>

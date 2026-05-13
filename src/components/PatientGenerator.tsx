@@ -37,6 +37,32 @@ async function callAI(prompt: string): Promise<string> {
   return j.content ?? j.raw ?? "";
 }
 
+export type PatientSeed = { age: number; sex: "M" | "F"; condition: string; weightKg?: number };
+
+export async function generatePatientScenario(seed: PatientSeed): Promise<PatientProfile> {
+  const { age, sex, condition, weightKg = 70 } = seed;
+  const txt = await callAI(
+    `Génère un scénario clinique court (4-6 lignes max, markdown) pour un patient ${sex === "M" ? "homme" : "femme"} de ${age} ans, ${weightKg} kg, présentant : "${condition}". Inclure : antécédents, signes vitaux attendus, niveau de risque (faible/moyen/élevé), précautions chirurgicales spécifiques. Varie les détails par rapport à un précédent scénario. Termine par une ligne JSON sur sa propre ligne, exactement: {"bpm": <int>, "spo2": <int>, "temp": <float>, "bp": "<systo/diasto>", "risk": "low|medium|high"}`,
+  );
+  const match = txt.match(/\{[^}]*"bpm"[\s\S]*?\}/);
+  let vitals = { ...DEFAULT_VITALS };
+  let risk: PatientProfile["riskLevel"] = "low";
+  if (match) {
+    try {
+      const o = JSON.parse(match[0]);
+      vitals = {
+        bpm: Math.round(o.bpm ?? 72),
+        spo2: Math.round(o.spo2 ?? 98),
+        tempC: +Number(o.temp ?? 36.6).toFixed(1),
+        bp: String(o.bp ?? "120/80"),
+      };
+      if (o.risk === "medium" || o.risk === "high") risk = o.risk;
+    } catch { /* ignore */ }
+  }
+  const scenario = match ? txt.replace(match[0], "").trim() : txt;
+  return { age, sex, condition, weightKg, scenario, vitals, riskLevel: risk };
+}
+
 export function PatientGenerator({
   current,
   onGenerated,
@@ -54,29 +80,8 @@ export function PatientGenerator({
   const generate = async () => {
     setLoading(true);
     try {
-      const txt = await callAI(
-        `Génère un scénario clinique court (4-6 lignes max, markdown) pour un patient ${sex === "M" ? "homme" : "femme"} de ${age} ans, ${weight} kg, présentant : "${condition}". Inclure : antécédents, signes vitaux attendus, niveau de risque (faible/moyen/élevé), précautions chirurgicales spécifiques. Termine par une ligne JSON sur sa propre ligne, exactement: {"bpm": <int>, "spo2": <int>, "temp": <float>, "bp": "<systo/diasto>", "risk": "low|medium|high"}`,
-      );
-
-      // Try to extract JSON line
-      const match = txt.match(/\{[^}]*"bpm"[\s\S]*?\}/);
-      let vitals = { ...DEFAULT_VITALS };
-      let risk: PatientProfile["riskLevel"] = "low";
-      if (match) {
-        try {
-          const o = JSON.parse(match[0]);
-          vitals = {
-            bpm: Math.round(o.bpm ?? 72),
-            spo2: Math.round(o.spo2 ?? 98),
-            tempC: +Number(o.temp ?? 36.6).toFixed(1),
-            bp: String(o.bp ?? "120/80"),
-          };
-          if (o.risk === "medium" || o.risk === "high") risk = o.risk;
-        } catch { /* ignore */ }
-      }
-      const scenario = match ? txt.replace(match[0], "").trim() : txt;
-
-      onGenerated({ age, sex, condition, weightKg: weight, scenario, vitals, riskLevel: risk });
+      const profile = await generatePatientScenario({ age, sex, condition, weightKg: weight });
+      onGenerated(profile);
       toast.success("Patient personnalisé généré");
       setOpen(false);
     } catch {
