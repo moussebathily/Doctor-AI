@@ -314,7 +314,28 @@ function SimulationPage() {
 
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <PatientGenerator current={patient} onGenerated={setPatient} />
+            <PatientGenerator current={patient} onGenerated={(p) => { setPatient(p); if (selected) persistProgress(selected, { patient: p }); }} />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={regenLoading}
+              onClick={async () => {
+                setRegenLoading(true);
+                try {
+                  const p = await generatePatientScenario({ age: patient.age, sex: patient.sex, condition: patient.condition, weightKg: patient.weightKg });
+                  setPatient(p);
+                  if (selected) persistProgress(selected, { patient: p });
+                  toast.success("Nouveau scénario patient — moniteur mis à jour");
+                } catch {
+                  toast.error("Échec régénération");
+                } finally {
+                  setRegenLoading(false);
+                }
+              }}
+              title="Régénérer un patient avec les mêmes symptômes"
+            >
+              <RotateCcw className={cn("w-4 h-4 mr-1.5", regenLoading && "animate-spin")} /> Générer encore
+            </Button>
             <Badge variant="secondary" className="text-[10px]">
               {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
             </Badge>
