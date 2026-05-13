@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { listenOnce, speak, speechSupported, matchOperationFromVoice } from "@/lib/voice";
@@ -7,7 +7,9 @@ import { OPERATIONS } from "@/lib/operations";
 
 export function VoiceCommand({ onLaunch }: { onLaunch: (operationId: string) => void }) {
   const [listening, setListening] = useState(false);
-  const supported = speechSupported();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const supported = mounted && speechSupported();
 
   const handle = () => {
     if (!supported) {
