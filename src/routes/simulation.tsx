@@ -40,6 +40,8 @@ type ProgressRow = {
   score: number;
   completed: boolean;
   debrief: string | null;
+  elapsed_seconds?: number;
+  patient?: PatientProfile | null;
 };
 
 function SimulationPage() {
