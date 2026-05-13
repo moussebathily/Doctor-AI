@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 import { PatientMonitor, DEFAULT_VITALS } from "@/components/PatientMonitor";
-import { PatientGenerator, DEFAULT_PATIENT, type PatientProfile } from "@/components/PatientGenerator";
+import { PatientGenerator, DEFAULT_PATIENT, generatePatientScenario, type PatientProfile } from "@/components/PatientGenerator";
 import { VoiceCommand } from "@/components/VoiceCommand";
 import { setPharmacyPrefill, DEFAULT_TREATMENTS } from "@/lib/sim-bridge";
 import { speak } from "@/lib/voice";
