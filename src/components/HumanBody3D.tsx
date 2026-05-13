@@ -7,7 +7,16 @@ type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
 
 // Load and display an external GLB model (anatomy/surgery model).
 // Auto-centered and scaled to fit the viewport. Subtle breathing animation.
-function GLBModel({ url, breathing = true }: { url: string; breathing?: boolean }) {
+// Every mesh inside the GLB is clickable (raycasting) — clicking returns the part name.
+function GLBModel({
+  url,
+  breathing = true,
+  onPick,
+}: {
+  url: string;
+  breathing?: boolean;
+  onPick?: (name: string) => void;
+}) {
   const { scene } = useGLTF(url);
   const ref = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
@@ -20,7 +29,28 @@ function GLBModel({ url, breathing = true }: { url: string; breathing?: boolean 
   });
   return (
     <Center>
-      <group ref={ref}>
+      <group
+        ref={ref}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "default";
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          const obj = e.object as THREE.Object3D;
+          // climb up to find a named ancestor (GLB parts often nested)
+          let cur: THREE.Object3D | null = obj;
+          let name = obj.name;
+          while (cur && !name) {
+            cur = cur.parent;
+            name = cur?.name ?? "";
+          }
+          onPick?.(name || "Partie anatomique");
+        }}
+      >
         <primitive object={scene} />
       </group>
     </Center>
@@ -125,6 +155,7 @@ export function HumanBody3D({
   height?: string;
 }) {
   const [hover, setHover] = useState<OrganKey | null>(null);
+  const [pickedPart, setPickedPart] = useState<string | null>(null);
   const isHighlighted = (k: OrganKey) => highlightOrgan === k || hover === k;
 
   return (
@@ -136,7 +167,7 @@ export function HumanBody3D({
         <Suspense fallback={null}>
           <Environment preset="studio" />
           {glbUrl ? (
-            <GLBModel url={glbUrl} />
+            <GLBModel url={glbUrl} onPick={setPickedPart} />
           ) : (
             <>
               <BodySilhouette />
@@ -161,6 +192,21 @@ export function HumanBody3D({
           <OrbitControls enablePan={false} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />
         </Suspense>
       </Canvas>
+      {pickedPart && glbUrl && (
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">
+          <div className="text-xs">
+            <span className="text-muted-foreground">Sélection : </span>
+            <span className="font-semibold">{pickedPart}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPickedPart(null)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

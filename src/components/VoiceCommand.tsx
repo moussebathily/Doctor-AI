@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { listenOnce, speak, speechSupported, matchOperationFromVoice } from "@/lib/voice";
@@ -7,7 +7,9 @@ import { OPERATIONS } from "@/lib/operations";
 
 export function VoiceCommand({ onLaunch }: { onLaunch: (operationId: string) => void }) {
   const [listening, setListening] = useState(false);
-  const supported = speechSupported();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const supported = mounted && speechSupported();
 
   const handle = () => {
     if (!supported) {
@@ -45,7 +47,7 @@ export function VoiceCommand({ onLaunch }: { onLaunch: (operationId: string) => 
       variant={listening ? "default" : "outline"}
       className={listening ? "bg-red-600 hover:bg-red-600 text-white animate-pulse" : ""}
     >
-      {listening ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : supported ? <Mic className="w-4 h-4 mr-1.5" /> : <MicOff className="w-4 h-4 mr-1.5" />}
+      {listening ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : !mounted || supported ? <Mic className="w-4 h-4 mr-1.5" /> : <MicOff className="w-4 h-4 mr-1.5" />}
       {listening ? "Écoute…" : "Commande vocale"}
     </Button>
   );
