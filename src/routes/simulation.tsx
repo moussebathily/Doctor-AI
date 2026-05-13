@@ -107,7 +107,7 @@ function SimulationPage() {
   const persistProgress = async (op: Operation, patch: Partial<ProgressRow>) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const base = progressMap[op.id] ?? { operation_id: op.id, current_step: 0, errors: 0, score: 100, completed: false, debrief: null };
+    const base = progressMap[op.id] ?? { operation_id: op.id, current_step: 0, errors: 0, score: 100, completed: false, debrief: null, elapsed_seconds: 0, patient: null };
     const next = { ...base, ...patch };
     setProgressMap((m) => ({ ...m, [op.id]: next }));
     await supabase.from("surgery_progress").upsert({ user_id: u.user.id, ...next }, { onConflict: "user_id,operation_id" });
