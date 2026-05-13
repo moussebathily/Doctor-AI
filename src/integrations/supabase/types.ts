@@ -250,9 +250,11 @@ export type Database = {
           created_at: string
           current_step: number
           debrief: string | null
+          elapsed_seconds: number
           errors: number
           id: string
           operation_id: string
+          patient: Json | null
           score: number
           updated_at: string
           user_id: string
@@ -262,9 +264,11 @@ export type Database = {
           created_at?: string
           current_step?: number
           debrief?: string | null
+          elapsed_seconds?: number
           errors?: number
           id?: string
           operation_id: string
+          patient?: Json | null
           score?: number
           updated_at?: string
           user_id: string
@@ -274,9 +278,11 @@ export type Database = {
           created_at?: string
           current_step?: number
           debrief?: string | null
+          elapsed_seconds?: number
           errors?: number
           id?: string
           operation_id?: string
+          patient?: Json | null
           score?: number
           updated_at?: string
           user_id?: string
