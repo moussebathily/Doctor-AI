@@ -121,17 +121,22 @@ function SimulationPage() {
       setErrors(saved.errors);
       setCompleted(false);
       setDebrief(saved.debrief ?? "");
+      setElapsed(saved.elapsed_seconds ?? 0);
+      startedAt.current = Date.now() - (saved.elapsed_seconds ?? 0) * 1000;
+      if (saved.patient) setPatient(saved.patient);
+      toast.success(`Reprise — étape ${saved.current_step + 1}`);
+      speak(`Reprise de ${op.name}, étape ${saved.current_step + 1}.`);
     } else {
       setStepIdx(0);
       setErrors(0);
       setCompleted(false);
       setDebrief("");
+      setElapsed(0);
+      startedAt.current = Date.now();
+      speak(`Lancement de ${op.name}. Étape 1, ${op.steps[0].title}.`);
     }
     setChecked({});
     setAiTip("");
-    setElapsed(0);
-    startedAt.current = Date.now();
-    speak(`Lancement de ${op.name}. Étape 1, ${op.steps[0].title}.`);
   };
 
   const launchById = (id: string) => {
