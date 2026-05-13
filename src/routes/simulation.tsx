@@ -62,6 +62,7 @@ function SimulationPage() {
   const [activeGlb, setActiveGlb] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0); // seconds
   const startedAt = useRef<number | null>(null);
+  const [regenLoading, setRegenLoading] = useState(false);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
   const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
