@@ -7,7 +7,16 @@ type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
 
 // Load and display an external GLB model (anatomy/surgery model).
 // Auto-centered and scaled to fit the viewport. Subtle breathing animation.
-function GLBModel({ url, breathing = true }: { url: string; breathing?: boolean }) {
+// Every mesh inside the GLB is clickable (raycasting) — clicking returns the part name.
+function GLBModel({
+  url,
+  breathing = true,
+  onPick,
+}: {
+  url: string;
+  breathing?: boolean;
+  onPick?: (name: string) => void;
+}) {
   const { scene } = useGLTF(url);
   const ref = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
@@ -20,7 +29,28 @@ function GLBModel({ url, breathing = true }: { url: string; breathing?: boolean 
   });
   return (
     <Center>
-      <group ref={ref}>
+      <group
+        ref={ref}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "default";
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          const obj = e.object as THREE.Object3D;
+          // climb up to find a named ancestor (GLB parts often nested)
+          let cur: THREE.Object3D | null = obj;
+          let name = obj.name;
+          while (cur && !name) {
+            cur = cur.parent;
+            name = cur?.name ?? "";
+          }
+          onPick?.(name || "Partie anatomique");
+        }}
+      >
         <primitive object={scene} />
       </group>
     </Center>
