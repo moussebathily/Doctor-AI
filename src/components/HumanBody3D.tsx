@@ -155,6 +155,7 @@ export function HumanBody3D({
   height?: string;
 }) {
   const [hover, setHover] = useState<OrganKey | null>(null);
+  const [pickedPart, setPickedPart] = useState<string | null>(null);
   const isHighlighted = (k: OrganKey) => highlightOrgan === k || hover === k;
 
   return (
@@ -166,7 +167,7 @@ export function HumanBody3D({
         <Suspense fallback={null}>
           <Environment preset="studio" />
           {glbUrl ? (
-            <GLBModel url={glbUrl} />
+            <GLBModel url={glbUrl} onPick={setPickedPart} />
           ) : (
             <>
               <BodySilhouette />
