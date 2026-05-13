@@ -47,7 +47,7 @@ export function VoiceCommand({ onLaunch }: { onLaunch: (operationId: string) => 
       variant={listening ? "default" : "outline"}
       className={listening ? "bg-red-600 hover:bg-red-600 text-white animate-pulse" : ""}
     >
-      {listening ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : supported ? <Mic className="w-4 h-4 mr-1.5" /> : <MicOff className="w-4 h-4 mr-1.5" />}
+      {listening ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : !mounted || supported ? <Mic className="w-4 h-4 mr-1.5" /> : <MicOff className="w-4 h-4 mr-1.5" />}
       {listening ? "Écoute…" : "Commande vocale"}
     </Button>
   );
