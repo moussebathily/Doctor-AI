@@ -81,7 +81,7 @@ function SimulationPage() {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
-      const { data } = await supabase.from("surgery_progress").select("operation_id,current_step,errors,score,completed,debrief").eq("user_id", u.user.id);
+      const { data } = await supabase.from("surgery_progress").select("operation_id,current_step,errors,score,completed,debrief,elapsed_seconds,patient").eq("user_id", u.user.id);
       const map: Record<string, ProgressRow> = {};
       (data ?? []).forEach((r) => (map[r.operation_id] = r as ProgressRow));
       setProgressMap(map);
