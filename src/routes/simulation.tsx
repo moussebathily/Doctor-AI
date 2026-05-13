@@ -100,9 +100,41 @@ function SimulationPage() {
       const o = OPERATIONS.find((x) => x.id === autoPreselect);
       if (o) launch(o);
       setAutoPreselect(null);
+      return;
     }
+    // Auto-resume most recent in-progress simulation on reload
+    if (selected) return;
+    const inProgress = Object.values(progressMap).filter((p) => !p.completed && p.current_step > 0);
+    if (inProgress.length === 0) return;
+    const op = OPERATIONS.find((o) => o.id === inProgress[0].operation_id);
+    if (op) launch(op, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPreselect]);
+  }, [autoPreselect, progressMap]);
+
+  // Periodic auto-save (time + patient state) every 10s while running
+  useEffect(() => {
+    if (!selected || completed) return;
+    const t = setInterval(() => {
+      persistProgress(selected, { elapsed_seconds: elapsed, patient, current_step: stepIdx, errors, score, completed: false });
+    }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, completed, elapsed, patient, stepIdx, errors, score]);
+
+  // Save on tab close / hide
+  useEffect(() => {
+    if (!selected || completed) return;
+    const handler = () => {
+      persistProgress(selected, { elapsed_seconds: elapsed, patient, current_step: stepIdx, errors, score, completed: false });
+    };
+    window.addEventListener("beforeunload", handler);
+    document.addEventListener("visibilitychange", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      document.removeEventListener("visibilitychange", handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, completed, elapsed, patient, stepIdx, errors, score]);
 
   const persistProgress = async (op: Operation, patch: Partial<ProgressRow>) => {
     const { data: u } = await supabase.auth.getUser();
