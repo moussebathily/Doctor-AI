@@ -9,8 +9,7 @@ import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft, Activity, ListChecks, PlayCircle, Star, Clock, Box, ShoppingBag, Volume2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle, ChevronRight, RotateCcw, Sparkles, Trophy, ArrowLeft, Activity, ListChecks, PlayCircle, Star, Clock, ShoppingBag, Volume2 } from "lucide-react";
 import { AnatomyAtlas } from "@/components/AnatomyAtlas";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -21,6 +20,12 @@ import { PatientGenerator, DEFAULT_PATIENT, generatePatientScenario, type Patien
 import { VoiceCommand } from "@/components/VoiceCommand";
 import { setPharmacyPrefill, DEFAULT_TREATMENTS } from "@/lib/sim-bridge";
 import { speak } from "@/lib/voice";
+import { SystemSidebar, type AnatomySystem, type AnatomyView } from "@/components/simulation/SystemSidebar";
+import { StepsPanel } from "@/components/simulation/StepsPanel";
+import { ToolsPanel } from "@/components/simulation/ToolsPanel";
+import { LaparoscopicView } from "@/components/simulation/LaparoscopicView";
+import { InnovativeIdeasBar } from "@/components/simulation/InnovativeIdeasBar";
+import { OrganInfoPanel } from "@/components/simulation/OrganInfoPanel";
 
 export const Route = createFileRoute("/simulation")({
   validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
@@ -44,6 +49,14 @@ type ProgressRow = {
   patient?: PatientProfile | null;
 };
 
+const GLB_STORAGE_KEY = "doctorai_glb_url_v1";
+// Operation-system default mapping
+const OPERATION_SYSTEM: Record<string, AnatomySystem> = {
+  appendicectomie: "digestive",
+  "pontage-coronarien": "circulatory",
+  "fracture-tibia": "skeletal",
+};
+
 function SimulationPage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Operation | null>(null);
@@ -60,13 +73,28 @@ function SimulationPage() {
   const [patient, setPatient] = useState<PatientProfile>(DEFAULT_PATIENT);
   const [glbUrl, setGlbUrl] = useState<string>("");
   const [activeGlb, setActiveGlb] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0); // seconds
+  const [elapsed, setElapsed] = useState(0);
   const startedAt = useRef<number | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
+
+  const [system, setSystem] = useState<AnatomySystem>("full");
+  const [viewMode, setViewMode] = useState<AnatomyView>("complete");
+  const [activeTool, setActiveTool] = useState<string>("bistouri");
+  const [pickedOrgan, setPickedOrgan] = useState<string | null>(null);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
   const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
   const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  // Load persisted GLB url on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(GLB_STORAGE_KEY);
+    if (saved) {
+      setGlbUrl(saved);
+      setActiveGlb(saved);
+    }
+  }, []);
 
   // Chrono
   useEffect(() => {
@@ -75,7 +103,6 @@ function SimulationPage() {
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - (startedAt.current ?? Date.now())) / 1000)), 1000);
     return () => clearInterval(t);
   }, [selected, completed]);
-
 
   // Load existing progress
   useEffect(() => {
@@ -89,7 +116,7 @@ function SimulationPage() {
     })();
   }, []);
 
-  // Read deep-link from URL (?op=appendicectomie)
+  // Deep-link from URL (?op=...)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const op = new URLSearchParams(window.location.search).get("op");
@@ -103,7 +130,6 @@ function SimulationPage() {
       setAutoPreselect(null);
       return;
     }
-    // Auto-resume most recent in-progress simulation on reload
     if (selected) return;
     const inProgress = Object.values(progressMap).filter((p) => !p.completed && p.current_step > 0);
     if (inProgress.length === 0) return;
@@ -112,7 +138,7 @@ function SimulationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPreselect, progressMap]);
 
-  // Periodic auto-save (time + patient state) every 10s while running
+  // Periodic auto-save
   useEffect(() => {
     if (!selected || completed) return;
     const t = setInterval(() => {
@@ -122,7 +148,7 @@ function SimulationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, completed, elapsed, patient, stepIdx, errors, score]);
 
-  // Save on tab close / hide
+  // Save on tab close
   useEffect(() => {
     if (!selected || completed) return;
     const handler = () => {
@@ -149,6 +175,7 @@ function SimulationPage() {
   const launch = (op: Operation, resume = false) => {
     const saved = progressMap[op.id];
     setSelected(op);
+    setSystem(OPERATION_SYSTEM[op.id] ?? "full");
     if (resume && saved && !saved.completed) {
       setStepIdx(saved.current_step);
       setErrors(saved.errors);
@@ -218,11 +245,7 @@ function SimulationPage() {
     try {
       const step = selected.steps[stepIdx];
       const text = await callAI(
-        `Tu es un chirurgien instructeur expert. Pour l'étape "${step.title}" de l'opération "${selected.name}" :\n` +
-          `1) Donne 3 conseils pratiques (numérotés)\n` +
-          `2) Liste 2 risques spécifiques à anticiper\n` +
-          `3) Donne 1 critère de réussite mesurable\n` +
-          `Réponds en markdown, max 8 lignes. Description : ${step.description}`,
+        `Tu es un chirurgien instructeur expert. Pour l'étape "${step.title}" de l'opération "${selected.name}" :\n1) 3 conseils pratiques\n2) 2 risques à anticiper\n3) 1 critère de réussite\nMarkdown, max 8 lignes. Description : ${step.description}`,
       );
       setAiTip(text || "Pas de conseil disponible.");
     } catch {
@@ -237,10 +260,7 @@ function SimulationPage() {
     setDebriefLoading(true);
     try {
       const text = await callAI(
-        `Tu es chirurgien-instructeur. L'apprenant vient de terminer l'opération "${selected.name}" avec ${errors} erreur(s) et un score de ${score}/100 sur ${selected.steps.length} étapes.\n` +
-          `Rédige un DEBRIEF en markdown structuré :\n` +
-          `## Points forts\n## Points d'amélioration\n## Recommandations pour la prochaine session\n## Niveau atteint (Débutant/Intermédiaire/Avancé/Expert)\n` +
-          `Sois concret, pédagogique, encourageant. Max 12 lignes.`,
+        `Chirurgien-instructeur. L'apprenant termine "${selected.name}" avec ${errors} erreur(s), score ${score}/100, ${selected.steps.length} étapes.\nDEBRIEF markdown :\n## Points forts\n## Points d'amélioration\n## Recommandations\n## Niveau atteint\nMax 12 lignes.`,
       );
       setDebrief(text);
       if (selected) persistProgress(selected, { debrief: text, completed: true });
@@ -265,32 +285,49 @@ function SimulationPage() {
     }
   };
 
+  const loadGlb = () => {
+    const v = glbUrl.trim();
+    setActiveGlb(v || null);
+    if (typeof window !== "undefined") {
+      if (v) localStorage.setItem(GLB_STORAGE_KEY, v);
+      else localStorage.removeItem(GLB_STORAGE_KEY);
+    }
+    if (v) toast.success("Modèle 3D chargé");
+  };
+
+  const clearGlb = () => {
+    setActiveGlb(null);
+    setGlbUrl("");
+    if (typeof window !== "undefined") localStorage.removeItem(GLB_STORAGE_KEY);
+  };
+
+  // ============ Active simulation view (AfriDoctor-style layout) ============
   if (selected) {
     const step = selected.steps[stepIdx];
     const allChecked = (step.checklist ?? []).every((_, i) => checked[i]);
     return (
       <AppShell>
-        <div className="max-w-7xl mx-auto p-4 md:p-6">
-          {/* Operating-theatre header */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
-            <div className="col-span-2 rounded-xl border border-border bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3 flex items-center gap-3">
+        <div className="max-w-[1600px] mx-auto p-3 md:p-4 space-y-3 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 min-h-screen">
+          {/* Top header bar */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <div className="md:col-span-3 rounded-2xl border border-border bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3 flex items-center gap-3 backdrop-blur">
               <Button variant="ghost" size="sm" className="text-white/90 hover:bg-white/10 hover:text-white" onClick={() => setSelected(null)}>
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] uppercase tracking-widest text-emerald-400/90 font-semibold">Opération</p>
-                <p className="font-display font-bold text-sm md:text-base truncate">{selected.name}</p>
+                <p className="font-display font-bold text-sm md:text-base truncate uppercase">{selected.name}</p>
               </div>
-              <span className="ml-auto w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="REC" />
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="REC" />
             </div>
-            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+            <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Temps</p>
-                <p className="font-mono font-bold text-base md:text-lg leading-none">{fmtTime(elapsed)}</p>
+                <p className="font-mono font-bold text-base leading-none">{fmtTime(elapsed)}</p>
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+            <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-2">
               <Trophy className="w-4 h-4 text-warning" />
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Score</p>
@@ -304,17 +341,17 @@ function SimulationPage() {
                 </div>
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
+            <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-2">
               <ListChecks className="w-4 h-4 text-teal" />
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Étape</p>
-                <p className="font-mono font-bold text-base">{stepIdx + 1}/{selected.steps.length}</p>
+                <p className="font-mono font-bold text-base">{stepIdx + 1} / {selected.steps.length}</p>
               </div>
             </div>
           </div>
 
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
+          {/* Toolbar: patient + regenerate */}
+          <div className="flex flex-wrap items-center gap-2">
             <PatientGenerator current={patient} onGenerated={(p) => { setPatient(p); if (selected) persistProgress(selected, { patient: p }); }} />
             <Button
               variant="outline"
@@ -326,76 +363,83 @@ function SimulationPage() {
                   const p = await generatePatientScenario({ age: patient.age, sex: patient.sex, condition: patient.condition, weightKg: patient.weightKg });
                   setPatient(p);
                   if (selected) persistProgress(selected, { patient: p });
-                  toast.success("Nouveau scénario patient — moniteur mis à jour");
+                  toast.success("Nouveau scénario patient");
                 } catch {
                   toast.error("Échec régénération");
                 } finally {
                   setRegenLoading(false);
                 }
               }}
-              title="Régénérer un patient avec les mêmes symptômes"
             >
               <RotateCcw className={cn("w-4 h-4 mr-1.5", regenLoading && "animate-spin")} /> Générer encore
             </Button>
             <Badge variant="secondary" className="text-[10px]">
               {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
             </Badge>
-            <div className="flex items-center gap-1 ml-auto">
-              <Box className="w-4 h-4 text-muted-foreground" />
-              <Input
-                value={glbUrl}
-                onChange={(e) => setGlbUrl(e.target.value)}
-                placeholder="URL .glb (Meshy/Mixamo)…"
-                className="h-8 w-[220px] text-xs"
-              />
-              <Button size="sm" variant="outline" onClick={() => setActiveGlb(glbUrl.trim() || null)}>
-                {activeGlb ? "Recharger" : "Charger"}
-              </Button>
-              {activeGlb && <Button size="sm" variant="ghost" onClick={() => setActiveGlb(null)}>Stylisé</Button>}
-            </div>
           </div>
 
-          <div className="grid lg:grid-cols-5 gap-4 md:gap-6">
-            <div className="lg:col-span-3 space-y-3">
-              <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}>
-                <Suspense fallback={null}>
-                  <HumanBody3D highlightOrgan={selected.organ} glbUrl={activeGlb} />
-                </Suspense>
-              </ClientOnly>
-              <PatientMonitor baseVitals={patient.vitals ?? DEFAULT_VITALS} alert={!!step.risks && stepIdx >= 2} />
-              <p className="text-[11px] text-muted-foreground text-center">Glissez pour pivoter • Molette pour zoomer • Cliquez sur les organes</p>
+          {/* Main grid: sidebar | 3D | right panels */}
+          <div className="grid grid-cols-12 gap-3">
+            {/* Left sidebar */}
+            <div className="col-span-12 lg:col-span-2 order-2 lg:order-1">
+              <SystemSidebar
+                system={system}
+                view={viewMode}
+                onSystemChange={setSystem}
+                onViewChange={setViewMode}
+                glbUrl={glbUrl}
+                onGlbUrlChange={setGlbUrl}
+                onLoadGlb={loadGlb}
+                onClearGlb={clearGlb}
+                hasGlb={!!activeGlb}
+              />
             </div>
 
-            <div className="lg:col-span-2 space-y-4">
-              <div className="bg-card rounded-xl border border-border p-4">
-                <div className="flex items-center justify-between mb-2 text-xs text-muted-foreground">
-                  <span>Étape {stepIdx + 1} / {selected.steps.length}</span>
-                  {errors > 0 && <span className="text-destructive">{errors} erreur(s)</span>}
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-teal transition-all" style={{ width: `${((stepIdx + (completed ? 1 : 0)) / selected.steps.length) * 100}%` }} />
-                </div>
+            {/* Center: 3D viewport */}
+            <div className="col-span-12 lg:col-span-7 order-1 lg:order-2 space-y-3">
+              <ClientOnly fallback={<div className="w-full h-[480px] rounded-2xl bg-muted animate-pulse" />}>
+                <Suspense fallback={null}>
+                  <HumanBody3D
+                    highlightOrgan={selected.organ}
+                    glbUrl={activeGlb}
+                    system={system}
+                    view={viewMode}
+                    onPickPart={setPickedOrgan}
+                    height="h-[420px] md:h-[560px]"
+                  />
+                </Suspense>
+              </ClientOnly>
+
+              {/* Step description bar */}
+              <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-3">
+                <Button variant="outline" size="icon" onClick={() => speak(`Étape ${stepIdx + 1}. ${step.title}. ${step.description}`)} className="shrink-0 h-9 w-9" title="Lire l'étape">
+                  <Volume2 className="w-4 h-4" />
+                </Button>
+                <p className="text-sm flex-1 min-w-0">
+                  <span className="font-semibold">Étape {stepIdx + 1} :</span> {step.description}
+                </p>
+                <Button onClick={askAI} disabled={aiLoading} variant="outline" size="sm" className="shrink-0">
+                  <Sparkles className="w-4 h-4 mr-1.5" /> {aiLoading ? "…" : "IA Assistant"}
+                </Button>
               </div>
 
+              {/* Step details (checklist / risks / AI tip) */}
               {!completed ? (
-                <div className="bg-card rounded-xl border border-border p-5">
-                  <div className="flex items-start gap-3 mb-3">
+                <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-4 space-y-3">
+                  <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-teal text-teal-foreground flex items-center justify-center font-bold text-sm shrink-0">{stepIdx + 1}</div>
-                    <div className="flex-1">
-                      <h3 className="font-display font-bold text-lg leading-tight">{step.title}</h3>
-                    </div>
+                    <h3 className="font-display font-bold text-lg leading-tight">{step.title}</h3>
                   </div>
-                  <p className="text-sm text-foreground/90 leading-relaxed mb-3">{step.description}</p>
 
                   {step.vitalCheck && (
-                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-accent/10 border border-accent/30 text-xs mb-3">
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-accent/10 border border-accent/30 text-xs">
                       <Activity className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
                       <span><strong>Surveillance :</strong> {step.vitalCheck}</span>
                     </div>
                   )}
 
                   {step.checklist && step.checklist.length > 0 && (
-                    <div className="mb-3 p-3 rounded-lg bg-muted/50 border border-border">
+                    <div className="p-3 rounded-lg bg-muted/40 border border-border">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                         <ListChecks className="w-3.5 h-3.5" /> Checklist sécurité
                       </div>
@@ -418,31 +462,22 @@ function SimulationPage() {
                   )}
 
                   {aiTip && (
-                    <div className="mt-3 p-3 rounded-lg bg-accent/10 border border-accent/30 text-xs leading-relaxed prose prose-sm max-w-none prose-headings:text-sm prose-p:my-1 prose-ol:my-1 prose-ul:my-1">
+                    <div className="p-3 rounded-lg bg-accent/10 border border-accent/30 text-xs leading-relaxed prose prose-sm max-w-none prose-headings:text-sm prose-p:my-1 prose-ol:my-1 prose-ul:my-1">
                       <div className="flex items-center gap-1.5 font-semibold text-accent mb-1 not-prose"><Sparkles className="w-3.5 h-3.5" /> Conseil IA</div>
                       <ReactMarkdown>{aiTip}</ReactMarkdown>
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={next} disabled={!!step.checklist?.length && !allChecked} className="flex-1" title={!allChecked ? "Cochez tous les items" : ""}>
-                      <CheckCircle2 className="w-4 h-4 mr-1" /> Valider
-                    </Button>
-                    <Button variant="outline" onClick={askAI} disabled={aiLoading} title="Conseil IA">
-                      <Sparkles className="w-4 h-4 mr-1" />{aiLoading ? "..." : "IA"}
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => speak(`Étape ${stepIdx + 1}. ${step.title}. ${step.description}`)} title="Lire l'étape">
-                      <Volume2 className="w-4 h-4" />
+                  <div className="flex gap-2">
+                    <Button onClick={next} disabled={!!step.checklist?.length && !allChecked} className="flex-1 bg-accent hover:bg-accent/90" title={!allChecked ? "Cochez tous les items" : ""}>
+                      <CheckCircle2 className="w-4 h-4 mr-1" /> Valider l'étape
                     </Button>
                     <Button variant="ghost" onClick={skip} className="text-muted-foreground">Sauter</Button>
                   </div>
-                  {!!step.checklist?.length && !allChecked && (
-                    <p className="text-[11px] text-muted-foreground text-center mt-2">Cochez tous les items pour valider</p>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="bg-gradient-to-br from-teal/20 to-accent/10 rounded-xl border border-teal/40 p-6 text-center">
+                  <div className="bg-gradient-to-br from-teal/20 to-accent/10 rounded-2xl border border-teal/40 p-6 text-center">
                     <Trophy className="w-12 h-12 text-teal mx-auto mb-3" />
                     <h3 className="font-display font-bold text-2xl mb-1">Opération terminée !</h3>
                     <p className="text-sm text-muted-foreground mb-3">Score final : <strong className="text-foreground">{score}/100</strong> • {errors} erreur(s) • {fmtTime(elapsed)}</p>
@@ -464,7 +499,7 @@ function SimulationPage() {
                     </div>
                   </div>
 
-                  <div className="bg-card rounded-xl border border-border p-5">
+                  <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="w-4 h-4 text-accent" />
                       <h4 className="font-display font-bold">Debrief IA</h4>
@@ -481,26 +516,29 @@ function SimulationPage() {
                   </div>
                 </div>
               )}
+            </div>
 
-              <div className="bg-card rounded-xl border border-border p-4">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Protocole</h4>
-                <ol className="space-y-1.5">
-                  {selected.steps.map((s, i) => (
-                    <li key={i} className={cn("flex items-center gap-2 text-xs", i < stepIdx ? "text-success" : i === stepIdx ? "text-foreground font-medium" : "text-muted-foreground")}>
-                      {i < stepIdx ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 rounded-full border border-current flex items-center justify-center text-[9px]">{i + 1}</span>}
-                      {s.title}
-                    </li>
-                  ))}
-                </ol>
+            {/* Right column: steps + tools + monitor + laparo */}
+            <div className="col-span-12 lg:col-span-3 order-3 space-y-3">
+              <StepsPanel steps={selected.steps} currentStep={stepIdx} />
+              <ToolsPanel activeTool={activeTool} onChange={setActiveTool} />
+              <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2 px-1">Moniteur patient</p>
+                <PatientMonitor baseVitals={patient.vitals ?? DEFAULT_VITALS} alert={!!step.risks && stepIdx >= 2} />
               </div>
+              <LaparoscopicView />
             </div>
           </div>
-          <div className="mt-6"><MedicalDisclaimer /></div>
+
+          <InnovativeIdeasBar />
+          <MedicalDisclaimer />
         </div>
+        <OrganInfoPanel organ={pickedOrgan} onClose={() => setPickedOrgan(null)} />
       </AppShell>
     );
   }
 
+  // ============ Operation selection screen ============
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto p-4 md:p-8">
@@ -517,7 +555,11 @@ function SimulationPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}><Suspense fallback={null}><HumanBody3D /></Suspense></ClientOnly>
+          <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}>
+            <Suspense fallback={null}>
+              <HumanBody3D glbUrl={activeGlb} system="full" view="complete" onPickPart={setPickedOrgan} />
+            </Suspense>
+          </ClientOnly>
           <div className="space-y-3">
             <h2 className="font-display font-semibold text-lg">Choisissez une opération</h2>
             {OPERATIONS.map((op) => {
@@ -556,6 +598,7 @@ function SimulationPage() {
 
         <MedicalDisclaimer />
       </div>
+      <OrganInfoPanel organ={pickedOrgan} onClose={() => setPickedOrgan(null)} />
     </AppShell>
   );
 }
