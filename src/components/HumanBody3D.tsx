@@ -1,24 +1,77 @@
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
 import * as THREE from "three";
+import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemSidebar";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
 
-// Load and display an external GLB model (anatomy/surgery model).
-// Auto-centered and scaled to fit the viewport. Subtle breathing animation.
-// Every mesh inside the GLB is clickable (raycasting) — clicking returns the part name.
+// Heuristic name → system map. Works on most anatomical GLBs whose meshes
+// include words like "heart", "bone", "muscle", "lung", etc.
+const SYSTEM_KEYWORDS: Record<Exclude<AnatomySystem, "full">, string[]> = {
+  digestive: ["stomach", "intestine", "colon", "liver", "pancreas", "esophagus", "appendix", "bowel", "gut"],
+  skeletal: ["bone", "skeleton", "skull", "spine", "rib", "vertebra", "femur", "tibia", "pelvis"],
+  muscular: ["muscle", "biceps", "triceps", "quad", "pec", "delt", "abs"],
+  circulatory: ["heart", "vein", "artery", "vessel", "aorta", "blood", "cardio"],
+  nervous: ["brain", "nerve", "spinal", "cortex", "cerebr"],
+  respiratory: ["lung", "trachea", "bronchi", "pulmo", "diaphragm"],
+  urinary: ["kidney", "bladder", "ureter", "renal", "urethr"],
+};
+
+function meshMatchesSystem(name: string, system: AnatomySystem): boolean {
+  if (system === "full") return true;
+  const n = name.toLowerCase();
+  return SYSTEM_KEYWORDS[system].some((k) => n.includes(k));
+}
+
 function GLBModel({
   url,
+  system,
+  view,
   breathing = true,
   onPick,
 }: {
   url: string;
+  system: AnatomySystem;
+  view: AnatomyView;
   breathing?: boolean;
   onPick?: (name: string) => void;
 }) {
   const { scene } = useGLTF(url);
   const ref = useRef<THREE.Group>(null);
+
+  // Apply system filter + view mode (opacity / visibility) every render of these props.
+  useEffect(() => {
+    scene.traverse((obj) => {
+      if (!(obj as THREE.Mesh).isMesh) return;
+      const mesh = obj as THREE.Mesh;
+      // Compose a name from this mesh + ancestors (GLB meshes often have generic names)
+      let composite = mesh.name;
+      let p: THREE.Object3D | null = mesh.parent;
+      while (p) {
+        composite += " " + p.name;
+        p = p.parent;
+      }
+      const inSystem = meshMatchesSystem(composite, system);
+
+      // Visibility: hide meshes not in current system unless view = complete
+      mesh.visible = system === "full" || inSystem || view === "complete";
+
+      // Opacity per view mode
+      const mat = mesh.material as THREE.Material | THREE.Material[];
+      const apply = (m: THREE.Material) => {
+        m.transparent = true;
+        if (view === "transparent") m.opacity = inSystem ? 1 : 0.18;
+        else if (view === "organs") m.opacity = inSystem ? 1 : 0.0;
+        else if (view === "layers") m.opacity = inSystem ? 1 : 0.35;
+        else m.opacity = inSystem || system === "full" ? 1 : 0.25;
+        m.needsUpdate = true;
+      };
+      if (Array.isArray(mat)) mat.forEach(apply);
+      else apply(mat);
+    });
+  }, [scene, system, view]);
+
   useFrame((_, delta) => {
     if (!ref.current) return;
     ref.current.rotation.y += delta * 0.15;
@@ -27,6 +80,7 @@ function GLBModel({
       ref.current.scale.set(s, s, s);
     }
   });
+
   return (
     <Center>
       <group
@@ -41,7 +95,6 @@ function GLBModel({
         onClick={(e) => {
           e.stopPropagation();
           const obj = e.object as THREE.Object3D;
-          // climb up to find a named ancestor (GLB parts often nested)
           let cur: THREE.Object3D | null = obj;
           let name = obj.name;
           while (cur && !name) {
@@ -107,37 +160,32 @@ function Organ({
   );
 }
 
-function BodySilhouette() {
-  // Stylized translucent torso + head + limbs
+function BodySilhouette({ opacity = 0.18 }: { opacity?: number }) {
   return (
     <group>
-      {/* Head */}
       <mesh position={[0, 1.4, 0]}>
         <sphereGeometry args={[0.32, 32, 32]} />
-        <meshStandardMaterial color="#eed7c5" transparent opacity={0.18} roughness={0.9} />
+        <meshStandardMaterial color="#eed7c5" transparent opacity={opacity} roughness={0.9} />
       </mesh>
-      {/* Torso */}
       <mesh position={[0, 0.4, 0]}>
         <capsuleGeometry args={[0.55, 1.2, 8, 16]} />
-        <meshStandardMaterial color="#eed7c5" transparent opacity={0.18} roughness={0.9} />
+        <meshStandardMaterial color="#eed7c5" transparent opacity={opacity} roughness={0.9} />
       </mesh>
-      {/* Arms */}
       <mesh position={[-0.75, 0.45, 0]} rotation={[0, 0, 0.2]}>
         <capsuleGeometry args={[0.13, 1.0, 8, 16]} />
-        <meshStandardMaterial color="#eed7c5" transparent opacity={0.15} />
+        <meshStandardMaterial color="#eed7c5" transparent opacity={opacity * 0.85} />
       </mesh>
       <mesh position={[0.75, 0.45, 0]} rotation={[0, 0, -0.2]}>
         <capsuleGeometry args={[0.13, 1.0, 8, 16]} />
-        <meshStandardMaterial color="#eed7c5" transparent opacity={0.15} />
+        <meshStandardMaterial color="#eed7c5" transparent opacity={opacity * 0.85} />
       </mesh>
-      {/* Legs */}
       <mesh position={[-0.25, -0.95, 0]}>
         <capsuleGeometry args={[0.16, 1.1, 8, 16]} />
-        <meshStandardMaterial color="#eed7c5" transparent opacity={0.15} />
+        <meshStandardMaterial color="#eed7c5" transparent opacity={opacity * 0.85} />
       </mesh>
       <mesh position={[0.25, -0.95, 0]}>
         <capsuleGeometry args={[0.16, 1.1, 8, 16]} />
-        <meshStandardMaterial color="#eed7c5" transparent opacity={0.15} />
+        <meshStandardMaterial color="#eed7c5" transparent opacity={opacity * 0.85} />
       </mesh>
     </group>
   );
@@ -147,16 +195,39 @@ export function HumanBody3D({
   highlightOrgan,
   onSelectOrgan,
   glbUrl,
+  system = "full",
+  view = "complete",
+  onPickPart,
   height = "h-[420px] md:h-[520px]",
 }: {
   highlightOrgan?: OrganKey | null;
   onSelectOrgan?: (organ: OrganKey) => void;
   glbUrl?: string | null;
+  system?: AnatomySystem;
+  view?: AnatomyView;
+  onPickPart?: (name: string) => void;
   height?: string;
 }) {
   const [hover, setHover] = useState<OrganKey | null>(null);
   const [pickedPart, setPickedPart] = useState<string | null>(null);
   const isHighlighted = (k: OrganKey) => highlightOrgan === k || hover === k;
+
+  // For the stylized fallback, decide which builtin organs to show based on `system`.
+  const showFallbackOrgan = useMemo(() => {
+    const map: Record<OrganKey, AnatomySystem> = {
+      brain: "nervous",
+      heart: "circulatory",
+      lung: "respiratory",
+      appendix: "digestive",
+      bone: "skeletal",
+    };
+    return (k: OrganKey) => system === "full" || map[k] === system;
+  }, [system]);
+
+  const handlePick = (name: string) => {
+    setPickedPart(name);
+    onPickPart?.(name);
+  };
 
   return (
     <div className={`w-full ${height} rounded-2xl overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border border-border relative`}>
@@ -167,36 +238,46 @@ export function HumanBody3D({
         <Suspense fallback={null}>
           <Environment preset="studio" />
           {glbUrl ? (
-            <GLBModel url={glbUrl} onPick={setPickedPart} />
+            <GLBModel url={glbUrl} system={system} view={view} onPick={handlePick} />
           ) : (
             <>
-              <BodySilhouette />
-              <group onPointerOver={() => setHover("brain")} onPointerOut={() => setHover(null)}>
-                <Organ position={[0, 1.42, 0.05]} color="#f3a5c0" scale={0.9} highlighted={isHighlighted("brain")} onClick={() => onSelectOrgan?.("brain")} label="Cerveau" />
-              </group>
-              <group onPointerOver={() => setHover("heart")} onPointerOut={() => setHover(null)}>
-                <Organ position={[-0.12, 0.65, 0.18]} color="#e94560" scale={1.1} highlighted={isHighlighted("heart")} onClick={() => onSelectOrgan?.("heart")} label="Cœur" />
-              </group>
-              <group onPointerOver={() => setHover("lung")} onPointerOut={() => setHover(null)}>
-                <Organ position={[-0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => onSelectOrgan?.("lung")} label="Poumons" />
-                <Organ position={[0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => onSelectOrgan?.("lung")} label="Poumons" />
-              </group>
-              <group onPointerOver={() => setHover("appendix")} onPointerOut={() => setHover(null)}>
-                <Organ position={[0.22, -0.05, 0.18]} color="#f59e0b" scale={0.6} highlighted={isHighlighted("appendix")} onClick={() => onSelectOrgan?.("appendix")} label="Appendice" />
-              </group>
-              <group onPointerOver={() => setHover("bone")} onPointerOut={() => setHover(null)}>
-                <Organ position={[0.25, -1.15, 0.05]} color="#f5f0e8" scale={0.9} shape="cylinder" highlighted={isHighlighted("bone")} onClick={() => onSelectOrgan?.("bone")} label="Tibia" />
-              </group>
+              <BodySilhouette opacity={view === "organs" ? 0.05 : view === "transparent" ? 0.12 : 0.2} />
+              {showFallbackOrgan("brain") && (
+                <group onPointerOver={() => setHover("brain")} onPointerOut={() => setHover(null)}>
+                  <Organ position={[0, 1.42, 0.05]} color="#f3a5c0" scale={0.9} highlighted={isHighlighted("brain")} onClick={() => { onSelectOrgan?.("brain"); handlePick("Cerveau"); }} label="Cerveau" />
+                </group>
+              )}
+              {showFallbackOrgan("heart") && (
+                <group onPointerOver={() => setHover("heart")} onPointerOut={() => setHover(null)}>
+                  <Organ position={[-0.12, 0.65, 0.18]} color="#e94560" scale={1.1} highlighted={isHighlighted("heart")} onClick={() => { onSelectOrgan?.("heart"); handlePick("Cœur"); }} label="Cœur" />
+                </group>
+              )}
+              {showFallbackOrgan("lung") && (
+                <group onPointerOver={() => setHover("lung")} onPointerOut={() => setHover(null)}>
+                  <Organ position={[-0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => { onSelectOrgan?.("lung"); handlePick("Poumons"); }} label="Poumons" />
+                  <Organ position={[0.32, 0.7, 0.08]} color="#8ec5d6" scale={1} highlighted={isHighlighted("lung")} onClick={() => { onSelectOrgan?.("lung"); handlePick("Poumons"); }} label="Poumons" />
+                </group>
+              )}
+              {showFallbackOrgan("appendix") && (
+                <group onPointerOver={() => setHover("appendix")} onPointerOut={() => setHover(null)}>
+                  <Organ position={[0.22, -0.05, 0.18]} color="#f59e0b" scale={0.6} highlighted={isHighlighted("appendix")} onClick={() => { onSelectOrgan?.("appendix"); handlePick("Appendice"); }} label="Appendice" />
+                </group>
+              )}
+              {showFallbackOrgan("bone") && (
+                <group onPointerOver={() => setHover("bone")} onPointerOut={() => setHover(null)}>
+                  <Organ position={[0.25, -1.15, 0.05]} color="#f5f0e8" scale={0.9} shape="cylinder" highlighted={isHighlighted("bone")} onClick={() => { onSelectOrgan?.("bone"); handlePick("Tibia"); }} label="Tibia" />
+                </group>
+              )}
             </>
           )}
           <OrbitControls enablePan={false} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />
         </Suspense>
       </Canvas>
-      {pickedPart && glbUrl && (
+      {pickedPart && (
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">
           <div className="text-xs">
             <span className="text-muted-foreground">Sélection : </span>
-            <span className="font-semibold">{pickedPart}</span>
+            <span className="font-semibold capitalize">{pickedPart}</span>
           </div>
           <button
             type="button"
@@ -210,4 +291,3 @@ export function HumanBody3D({
     </div>
   );
 }
-
