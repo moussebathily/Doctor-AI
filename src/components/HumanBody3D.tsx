@@ -51,6 +51,9 @@ function GLBProgressOverlay() {
       </div>
     </div>
   );
+}
+
+
 
 // Heuristic name → system map. Works on most anatomical GLBs whose meshes
 // include words like "heart", "bone", "muscle", "lung", etc.
