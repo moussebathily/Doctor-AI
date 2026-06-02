@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF, Center, useProgress } from "@react-three/drei";
+import { DRACOLoader, KTX2Loader } from "three-stdlib";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import * as THREE from "three";
 import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemSidebar";
 
@@ -10,6 +12,32 @@ type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
 // replaceable by passing a custom `glbUrl` prop or via the sidebar input.
 const DEFAULT_DEMO_GLB =
   "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb";
+
+// ───── GLB compression decoders (Draco + Meshopt + KTX2) ─────
+// Configured once and reused across loads. Drei's `useGLTF` accepts an
+// `extendLoader` callback to attach decoders, enabling compressed payloads
+// (10-20× smaller) — critical for mobile/tablet bandwidth.
+const dracoLoader = new DRACOLoader().setDecoderPath("https://www.gstatic.com/draco/v1/decoders/");
+const ktx2Loader = new KTX2Loader().setTranscoderPath("https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/");
+const extendLoader = (loader: unknown) => {
+  const g = loader as { setDRACOLoader?: (l: DRACOLoader) => void; setKTX2Loader?: (l: KTX2Loader) => void; setMeshoptDecoder?: (d: typeof MeshoptDecoder) => void };
+  g.setDRACOLoader?.(dracoLoader);
+  g.setKTX2Loader?.(ktx2Loader);
+  g.setMeshoptDecoder?.(MeshoptDecoder);
+};
+
+// Cache-warm the demo model as soon as this module is imported. Subsequent
+// renders read from the GLTF cache — no network hit. Any URL passed via the
+// sidebar is preloaded on demand by `useGLBPreload` below.
+useGLTF.preload(DEFAULT_DEMO_GLB, true, true, extendLoader as never);
+
+/** Public hook: warm the GLTF cache for a URL before mounting the viewer. */
+export function useGLBPreload(url?: string | null) {
+  useEffect(() => {
+    if (!url) return;
+    useGLTF.preload(url, true, true, extendLoader as never);
+  }, [url]);
+}
 
 // Heuristic name → system map. Works on most anatomical GLBs whose meshes
 // include words like "heart", "bone", "muscle", "lung", etc.
