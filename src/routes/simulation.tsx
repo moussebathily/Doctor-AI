@@ -551,11 +551,7 @@ function SimulationPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}>
-            <Suspense fallback={null}>
-              <HumanBody3D glbUrl={activeGlb} system="full" view="complete" onPickPart={setPickedOrgan} />
-            </Suspense>
-          </ClientOnly>
+          <AnatomyViewer glbUrl={activeGlb} system="full" view="complete" onPickPart={setPickedOrgan} height="h-[420px] md:h-[520px]" />
           <div className="space-y-3">
             <h2 className="font-display font-semibold text-lg">Choisissez une opération</h2>
             {OPERATIONS.map((op) => {
