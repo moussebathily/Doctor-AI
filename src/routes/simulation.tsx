@@ -3,8 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer";
 import { ClientOnly } from "@/components/ClientOnly";
-import { lazy, Suspense } from "react";
-const HumanBody3D = lazy(() => import("@/components/HumanBody3D").then((m) => ({ default: m.HumanBody3D })));
+import { AnatomyViewer } from "@/components/ar/AnatomyViewer";
 import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -397,18 +396,15 @@ function SimulationPage() {
 
             {/* Center: 3D viewport */}
             <div className="col-span-12 lg:col-span-7 order-1 lg:order-2 space-y-3">
-              <ClientOnly fallback={<div className="w-full h-[480px] rounded-2xl bg-muted animate-pulse" />}>
-                <Suspense fallback={null}>
-                  <HumanBody3D
-                    highlightOrgan={selected.organ}
-                    glbUrl={activeGlb}
-                    system={system}
-                    view={viewMode}
-                    onPickPart={setPickedOrgan}
-                    height="h-[420px] md:h-[560px]"
-                  />
-                </Suspense>
-              </ClientOnly>
+              <AnatomyViewer
+                mode="web"
+                highlightOrgan={selected.organ}
+                glbUrl={activeGlb}
+                system={system}
+                view={viewMode}
+                onPickPart={setPickedOrgan}
+                height="h-[420px] md:h-[560px]"
+              />
 
               {/* Step description bar */}
               <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-3">
@@ -555,11 +551,7 @@ function SimulationPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          <ClientOnly fallback={<div className="w-full h-[420px] md:h-[520px] rounded-2xl bg-muted animate-pulse" />}>
-            <Suspense fallback={null}>
-              <HumanBody3D glbUrl={activeGlb} system="full" view="complete" onPickPart={setPickedOrgan} />
-            </Suspense>
-          </ClientOnly>
+          <AnatomyViewer glbUrl={activeGlb} system="full" view="complete" onPickPart={setPickedOrgan} height="h-[420px] md:h-[520px]" />
           <div className="space-y-3">
             <h2 className="font-display font-semibold text-lg">Choisissez une opération</h2>
             {OPERATIONS.map((op) => {
