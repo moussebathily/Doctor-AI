@@ -6,6 +6,11 @@ import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemS
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
 
+// Default demo anatomical-ish GLB (Khronos sample, CORS-enabled). Easily
+// replaceable by passing a custom `glbUrl` prop or via the sidebar input.
+const DEFAULT_DEMO_GLB =
+  "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb";
+
 // Heuristic name → system map. Works on most anatomical GLBs whose meshes
 // include words like "heart", "bone", "muscle", "lung", etc.
 const SYSTEM_KEYWORDS: Record<Exclude<AnatomySystem, "full">, string[]> = {
