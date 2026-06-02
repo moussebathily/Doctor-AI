@@ -262,16 +262,25 @@ export function HumanBody3D({
     onPickPart?.(name);
   };
 
+  const activeUrl = glbUrl || DEFAULT_DEMO_GLB;
+  useGLBPreload(glbUrl);
+
   return (
     <div className={`w-full ${height} rounded-2xl overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border border-border relative`}>
-      <Canvas camera={{ position: [0, 0.4, 3.2], fov: 45 }} shadows>
+      <Canvas
+        camera={{ position: [0, 0.4, 3.2], fov: 45 }}
+        shadows
+        dpr={[1, 1.75]}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
+        performance={{ min: 0.5 }}
+      >
         <ambientLight intensity={0.45} />
         <directionalLight position={[3, 5, 4]} intensity={1.2} castShadow />
         <pointLight position={[-3, 2, -2]} intensity={0.6} color="#5cbdb9" />
         <Suspense fallback={null}>
           <Environment preset="studio" />
-          {(glbUrl || DEFAULT_DEMO_GLB) ? (
-            <GLBModel url={glbUrl || DEFAULT_DEMO_GLB} system={system} view={view} onPick={handlePick} />
+          {activeUrl ? (
+            <GLBModel url={activeUrl} system={system} view={view} onPick={handlePick} />
           ) : (
             <>
               <BodySilhouette opacity={view === "organs" ? 0.05 : view === "transparent" ? 0.12 : 0.2} />
