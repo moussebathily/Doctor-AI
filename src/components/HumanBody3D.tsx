@@ -70,7 +70,7 @@ function GLBModel({
   breathing?: boolean;
   onPick?: (name: string) => void;
 }) {
-  const { scene } = useGLTF(url);
+  const { scene } = useGLTF(url, true, true, extendLoader as never);
   const ref = useRef<THREE.Group>(null);
 
   // Apply system filter + view mode (opacity / visibility) every render of these props.
