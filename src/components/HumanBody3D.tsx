@@ -315,6 +315,7 @@ export function HumanBody3D({
           <OrbitControls enablePan={false} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />
         </Suspense>
       </Canvas>
+      <GLBProgressOverlay />
       {pickedPart && (
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">
           <div className="text-xs">
