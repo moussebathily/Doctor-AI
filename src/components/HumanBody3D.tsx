@@ -242,8 +242,8 @@ export function HumanBody3D({
         <pointLight position={[-3, 2, -2]} intensity={0.6} color="#5cbdb9" />
         <Suspense fallback={null}>
           <Environment preset="studio" />
-          {glbUrl ? (
-            <GLBModel url={glbUrl} system={system} view={view} onPick={handlePick} />
+          {(glbUrl || DEFAULT_DEMO_GLB) ? (
+            <GLBModel url={glbUrl || DEFAULT_DEMO_GLB} system={system} view={view} onPick={handlePick} />
           ) : (
             <>
               <BodySilhouette opacity={view === "organs" ? 0.05 : view === "transparent" ? 0.12 : 0.2} />
