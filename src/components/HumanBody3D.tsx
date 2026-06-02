@@ -39,6 +39,19 @@ export function useGLBPreload(url?: string | null) {
   }, [url]);
 }
 
+/** Tiny streaming progress overlay shown while GLB is loading. */
+function GLBProgressOverlay() {
+  const { active, progress } = useProgress();
+  if (!active) return null;
+  return (
+    <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
+      <div className="m-3 px-3 py-2 rounded-lg bg-card/85 backdrop-blur border border-border text-xs font-medium shadow-lg flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-teal animate-pulse" />
+        <span>Chargement modèle 3D… {Math.round(progress)}%</span>
+      </div>
+    </div>
+  );
+
 // Heuristic name → system map. Works on most anatomical GLBs whose meshes
 // include words like "heart", "bone", "muscle", "lung", etc.
 const SYSTEM_KEYWORDS: Record<Exclude<AnatomySystem, "full">, string[]> = {
