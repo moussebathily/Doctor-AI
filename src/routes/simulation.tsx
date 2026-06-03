@@ -380,6 +380,34 @@ function SimulationPage() {
             <Badge variant="secondary" className="text-[10px]">
               {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
             </Badge>
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setViewerMode("web")}
+                  className={cn("px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1", viewerMode === "web" ? "bg-teal text-teal-foreground" : "bg-card hover:bg-muted")}
+                  title="Rendu WebGL"
+                >
+                  <Globe className="w-3 h-3" /> Web
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setViewerMode("ar"); toast.info("Mode AR simulé — l'adapter ViroReact prendra le relais sur mobile natif"); }}
+                  className={cn("px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 border-l border-border", viewerMode === "ar" ? "bg-teal text-teal-foreground" : "bg-card hover:bg-muted")}
+                  title="Simuler le passage en mode AR (ViroReact)"
+                >
+                  <Smartphone className="w-3 h-3" /> AR test
+                </button>
+              </div>
+              <Button
+                size="sm"
+                variant={showDiagnostics ? "default" : "outline"}
+                onClick={() => setShowDiagnostics((v) => !v)}
+                className="h-7 text-[10px]"
+              >
+                <Activity className="w-3 h-3 mr-1" /> Diagnostics
+              </Button>
+            </div>
           </div>
 
           {/* Main grid: sidebar | 3D | right panels */}
