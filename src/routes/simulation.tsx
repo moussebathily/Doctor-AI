@@ -438,15 +438,8 @@ function SimulationPage() {
                 view={viewMode}
                 onPickPart={setPickedOrgan}
                 height="h-[420px] md:h-[560px]"
-              />
-                mode="web"
-                highlightOrgan={selected.organ}
-                glbUrl={activeGlb}
-                system={system}
-                view={viewMode}
-                onPickPart={setPickedOrgan}
-                height="h-[420px] md:h-[560px]"
-              />
+
+
 
               {/* Step description bar */}
               <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-3">
