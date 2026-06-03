@@ -83,6 +83,8 @@ function SimulationPage() {
   const [viewMode, setViewMode] = useState<AnatomyView>("complete");
   const [activeTool, setActiveTool] = useState<string>("bistouri");
   const [pickedOrgan, setPickedOrgan] = useState<string | null>(null);
+  const [viewerMode, setViewerMode] = useState<ViewerMode>("web");
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
   const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
