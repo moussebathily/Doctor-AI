@@ -438,6 +438,8 @@ function SimulationPage() {
                 view={viewMode}
                 onPickPart={setPickedOrgan}
                 height="h-[420px] md:h-[560px]"
+              />
+
 
 
 
