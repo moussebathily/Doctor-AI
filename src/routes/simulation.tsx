@@ -20,6 +20,9 @@ import { VoiceCommand } from "@/components/VoiceCommand";
 import { setPharmacyPrefill, DEFAULT_TREATMENTS } from "@/lib/sim-bridge";
 import { speak } from "@/lib/voice";
 import { SystemSidebar, type AnatomySystem, type AnatomyView } from "@/components/simulation/SystemSidebar";
+import { DiagnosticsPanel } from "@/components/simulation/DiagnosticsPanel";
+import type { ViewerMode } from "@/components/ar/types";
+import { Smartphone, Globe } from "lucide-react";
 import { StepsPanel } from "@/components/simulation/StepsPanel";
 import { ToolsPanel } from "@/components/simulation/ToolsPanel";
 import { LaparoscopicView } from "@/components/simulation/LaparoscopicView";
@@ -80,6 +83,8 @@ function SimulationPage() {
   const [viewMode, setViewMode] = useState<AnatomyView>("complete");
   const [activeTool, setActiveTool] = useState<string>("bistouri");
   const [pickedOrgan, setPickedOrgan] = useState<string | null>(null);
+  const [viewerMode, setViewerMode] = useState<ViewerMode>("web");
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const score = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
   const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
@@ -375,12 +380,40 @@ function SimulationPage() {
             <Badge variant="secondary" className="text-[10px]">
               {patient.sex === "M" ? "Homme" : "Femme"} · {patient.age} ans · risque {patient.riskLevel}
             </Badge>
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setViewerMode("web")}
+                  className={cn("px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1", viewerMode === "web" ? "bg-teal text-teal-foreground" : "bg-card hover:bg-muted")}
+                  title="Rendu WebGL"
+                >
+                  <Globe className="w-3 h-3" /> Web
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setViewerMode("ar"); toast.info("Mode AR simulé — l'adapter ViroReact prendra le relais sur mobile natif"); }}
+                  className={cn("px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1 border-l border-border", viewerMode === "ar" ? "bg-teal text-teal-foreground" : "bg-card hover:bg-muted")}
+                  title="Simuler le passage en mode AR (ViroReact)"
+                >
+                  <Smartphone className="w-3 h-3" /> AR test
+                </button>
+              </div>
+              <Button
+                size="sm"
+                variant={showDiagnostics ? "default" : "outline"}
+                onClick={() => setShowDiagnostics((v) => !v)}
+                className="h-7 text-[10px]"
+              >
+                <Activity className="w-3 h-3 mr-1" /> Diagnostics
+              </Button>
+            </div>
           </div>
 
           {/* Main grid: sidebar | 3D | right panels */}
           <div className="grid grid-cols-12 gap-3">
             {/* Left sidebar */}
-            <div className="col-span-12 lg:col-span-2 order-2 lg:order-1">
+            <div className="col-span-12 lg:col-span-2 order-2 lg:order-1 space-y-3">
               <SystemSidebar
                 system={system}
                 view={viewMode}
@@ -392,12 +425,13 @@ function SimulationPage() {
                 onClearGlb={clearGlb}
                 hasGlb={!!activeGlb}
               />
+              {showDiagnostics && <DiagnosticsPanel activeGlbUrl={activeGlb} />}
             </div>
 
             {/* Center: 3D viewport */}
             <div className="col-span-12 lg:col-span-7 order-1 lg:order-2 space-y-3">
               <AnatomyViewer
-                mode="web"
+                mode={viewerMode}
                 highlightOrgan={selected.organ}
                 glbUrl={activeGlb}
                 system={system}
@@ -405,6 +439,9 @@ function SimulationPage() {
                 onPickPart={setPickedOrgan}
                 height="h-[420px] md:h-[560px]"
               />
+
+
+
 
               {/* Step description bar */}
               <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3 flex items-center gap-3">
