@@ -413,7 +413,7 @@ function SimulationPage() {
           {/* Main grid: sidebar | 3D | right panels */}
           <div className="grid grid-cols-12 gap-3">
             {/* Left sidebar */}
-            <div className="col-span-12 lg:col-span-2 order-2 lg:order-1">
+            <div className="col-span-12 lg:col-span-2 order-2 lg:order-1 space-y-3">
               <SystemSidebar
                 system={system}
                 view={viewMode}
@@ -425,11 +425,20 @@ function SimulationPage() {
                 onClearGlb={clearGlb}
                 hasGlb={!!activeGlb}
               />
+              {showDiagnostics && <DiagnosticsPanel activeGlbUrl={activeGlb} />}
             </div>
 
             {/* Center: 3D viewport */}
             <div className="col-span-12 lg:col-span-7 order-1 lg:order-2 space-y-3">
               <AnatomyViewer
+                mode={viewerMode}
+                highlightOrgan={selected.organ}
+                glbUrl={activeGlb}
+                system={system}
+                view={viewMode}
+                onPickPart={setPickedOrgan}
+                height="h-[420px] md:h-[560px]"
+              />
                 mode="web"
                 highlightOrgan={selected.organ}
                 glbUrl={activeGlb}
