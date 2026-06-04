@@ -64,22 +64,44 @@ export async function prefetchGLB(url: string): Promise<void> {
   }
 }
 
-/** Stream-fetch a URL while reporting byte progress. */
+/**
+ * Stream-fetch a URL with byte progress + optional Range resume.
+ *
+ * `resumeFrom` carries any bytes already buffered from a previous failed
+ * attempt. If the server replies 206 Partial Content we keep them; if it
+ * replies 200 (range ignored) we restart cleanly from zero.
+ */
 async function fetchWithProgress(
   url: string,
   opts: FetchOptions,
   attempt: number,
+  resumeFrom: { chunks: Uint8Array[]; loaded: number; total: number | null },
 ): Promise<Response> {
-  const res = await fetch(url, { signal: opts.signal });
+  const headers: HeadersInit = {};
+  if (resumeFrom.loaded > 0) {
+    headers["Range"] = `bytes=${resumeFrom.loaded}-`;
+  }
+  const res = await fetch(url, { signal: opts.signal, headers });
   if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
-  const totalHeader = res.headers.get("Content-Length");
-  const total = totalHeader ? parseInt(totalHeader, 10) : null;
+  // 206 → server honored Range; keep previously buffered chunks.
+  // 200 → server ignored Range; discard and restart.
+  const partial = res.status === 206 && resumeFrom.loaded > 0;
+  const chunks: Uint8Array[] = partial ? resumeFrom.chunks.slice() : [];
+  let loaded = partial ? resumeFrom.loaded : 0;
+
+  let total: number | null = resumeFrom.total;
+  if (partial) {
+    // Content-Range: bytes start-end/total
+    const cr = res.headers.get("Content-Range");
+    const m = cr && /\/(\d+)$/.exec(cr);
+    if (m) total = parseInt(m[1], 10);
+  } else {
+    const cl = res.headers.get("Content-Length");
+    total = cl ? parseInt(cl, 10) : null;
+  }
 
   const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let loaded = 0;
-
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -90,13 +112,14 @@ async function fetchWithProgress(
     }
   }
 
-  // Reassemble — we need a fresh Response so the Cache API can store it AND
-  // the caller can read it concurrently.
+  // Persist the running buffer so a later retry can resume from here.
+  resumeFrom.chunks = chunks;
+  resumeFrom.loaded = loaded;
+  resumeFrom.total = total;
+
   const blob = new Blob(chunks as BlobPart[], {
     type: res.headers.get("Content-Type") ?? "model/gltf-binary",
   });
-  // Carry headers (esp. Content-Type / Content-Length) over to the cached
-  // response so future loads report accurate sizes.
   return new Response(blob, {
     status: 200,
     headers: {
@@ -108,7 +131,8 @@ async function fetchWithProgress(
 
 /**
  * Public API: returns a blob: URL that the GLTF loader can consume.
- * Honors the offline cache, reports progress, and retries on failure.
+ * Honors the offline cache, reports progress, retries with exponential
+ * backoff, and resumes interrupted downloads via Range requests.
  */
 export async function fetchGLBWithCache(
   url: string,
@@ -130,25 +154,27 @@ export async function fetchGLBWithCache(
   }
 
   if (!response) {
+    const resume = { chunks: [] as Uint8Array[], loaded: 0, total: null as number | null };
     let lastErr: unknown;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        response = await fetchWithProgress(url, opts, attempt);
-        // Store a clone so future visits hit the cache.
+        response = await fetchWithProgress(url, opts, attempt, resume);
         if (cache) {
           try { await cache.put(url, response.clone()); } catch { /* quota */ }
         }
         break;
       } catch (err) {
         lastErr = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        recordGLBError({ url, message: msg, attempt });
         if (attempt < MAX_RETRIES) {
           const backoff = 400 * 2 ** (attempt - 1);
           opts.onProgress?.({
-            loaded: 0,
-            total: null,
+            loaded: resume.loaded,
+            total: resume.total,
             stage: "retrying",
             attempt,
-            error: err instanceof Error ? err.message : String(err),
+            error: msg,
           });
           await new Promise((r) => setTimeout(r, backoff));
         }
@@ -156,7 +182,7 @@ export async function fetchGLBWithCache(
     }
     if (!response) {
       const msg = lastErr instanceof Error ? lastErr.message : "network error";
-      opts.onProgress?.({ loaded: 0, total: null, stage: "error", attempt: MAX_RETRIES, error: msg });
+      opts.onProgress?.({ loaded: resume.loaded, total: resume.total, stage: "error", attempt: MAX_RETRIES, error: msg });
       throw new Error(`GLB download failed after ${MAX_RETRIES} attempts: ${msg}`);
     }
   }
@@ -171,6 +197,7 @@ export async function fetchGLBWithCache(
 
   return { blobUrl, bytes: blob.size, cacheHit, elapsedMs };
 }
+
 
 /** Wipe the offline GLB cache (debug button). */
 export async function clearGLBCache(): Promise<void> {
