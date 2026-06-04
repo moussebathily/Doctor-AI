@@ -83,7 +83,7 @@ export async function runARSwapTest(
 
   // 2. Contract check — props shape must remain identical for any mode.
   steps.push(
-    step("Contrat AnatomyViewerProps stable", () => {
+    stepSync("Contrat AnatomyViewerProps stable", () => {
       const base: AnatomyViewerProps = {
         glbUrl: null,
         system: "full",
