@@ -425,7 +425,7 @@ function SimulationPage() {
                 onClearGlb={clearGlb}
                 hasGlb={!!activeGlb}
               />
-              {showDiagnostics && <DiagnosticsPanel activeGlbUrl={activeGlb} />}
+              {showDiagnostics && <DiagnosticsPanel activeGlbUrl={activeGlb} onSetViewerMode={setViewerMode} />}
             </div>
 
             {/* Center: 3D viewport */}
