@@ -15,6 +15,7 @@ import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as PharmacyRouteImport } from './routes/pharmacy'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as DoctorRouteImport } from './routes/doctor'
+import { Route as CacheRouteImport } from './routes/cache'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -48,6 +49,11 @@ const DoctorRoute = DoctorRouteImport.update({
   path: '/doctor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CacheRoute = CacheRouteImport.update({
+  id: '/cache',
+  path: '/cache',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -62,6 +68,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cache': typeof CacheRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
   '/pharmacy': typeof PharmacyRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cache': typeof CacheRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
   '/pharmacy': typeof PharmacyRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cache': typeof CacheRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
   '/pharmacy': typeof PharmacyRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/cache'
     | '/doctor'
     | '/lab'
     | '/pharmacy'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/cache'
     | '/doctor'
     | '/lab'
     | '/pharmacy'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/cache'
     | '/doctor'
     | '/lab'
     | '/pharmacy'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  CacheRoute: typeof CacheRoute
   DoctorRoute: typeof DoctorRoute
   LabRoute: typeof LabRoute
   PharmacyRoute: typeof PharmacyRoute
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DoctorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cache': {
+      id: '/cache'
+      path: '/cache'
+      fullPath: '/cache'
+      preLoaderRoute: typeof CacheRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  CacheRoute: CacheRoute,
   DoctorRoute: DoctorRoute,
   LabRoute: LabRoute,
   PharmacyRoute: PharmacyRoute,
@@ -208,3 +229,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
