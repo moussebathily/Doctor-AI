@@ -15,10 +15,18 @@ export type GLBLoadSample = {
   at: number; // epoch ms
 };
 
+export type GLBErrorSample = {
+  url: string;
+  message: string;
+  attempt: number;
+  at: number;
+};
+
 export type DeviceClass = "mobile" | "tablet" | "desktop";
 
 export type Diagnostics = {
   loads: GLBLoadSample[];
+  errors: GLBErrorSample[];
   fps: number;
   frames: number;
   deviceClass: DeviceClass;
@@ -32,6 +40,7 @@ export type Diagnostics = {
 const listeners = new Set<() => void>();
 let state: Diagnostics = {
   loads: [],
+  errors: [],
   fps: 0,
   frames: 0,
   deviceClass: "desktop",
@@ -41,6 +50,11 @@ let state: Diagnostics = {
   deviceMemoryGb: null,
   online: true,
 };
+
+export function recordGLBError(s: Omit<GLBErrorSample, "at">) {
+  state.errors = [{ ...s, at: Date.now() }, ...state.errors].slice(0, 30);
+  emit();
+}
 
 function emit() {
   state = { ...state };
