@@ -45,6 +45,15 @@ async function step(
   }
 }
 
+const stepSync = (name: string, fn: () => string): ARTestStep => {
+  const t0 = performance.now();
+  try {
+    return { name, ok: true, detail: fn(), ms: performance.now() - t0 };
+  } catch (e) {
+    return { name, ok: false, detail: e instanceof Error ? e.message : String(e), ms: performance.now() - t0 };
+  }
+};
+
 export async function runARSwapTest(
   setMode: (m: ViewerMode) => void,
 ): Promise<ARTestReport> {
