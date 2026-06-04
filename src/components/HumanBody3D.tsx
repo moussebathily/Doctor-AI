@@ -339,13 +339,15 @@ export function HumanBody3D({
   const activeUrl = glbUrl || DEFAULT_DEMO_GLB;
   const { blobUrl, progress, error, retry } = useCachedGLB(activeUrl);
 
-  // LOD upgrade: start with cheap materials + no envmap, then upgrade after idle.
+  // LOD upgrade — knobs come from the user-tunable settings store.
+  const lod = useSyncExternalStore(subscribeLod, getLodSettings, getLodSettings);
   const [highQuality, setHighQuality] = useState(false);
   useEffect(() => {
+    if (!lod.highQualityEnabled) { setHighQuality(false); return; }
     if (progress.stage !== "ready") return;
-    const t = setTimeout(() => setHighQuality(true), 700);
+    const t = setTimeout(() => setHighQuality(true), Math.max(0, lod.upgradeDelayMs));
     return () => clearTimeout(t);
-  }, [progress.stage]);
+  }, [progress.stage, lod.upgradeDelayMs, lod.highQualityEnabled]);
 
   const online = typeof navigator !== "undefined" ? navigator.onLine : true;
 
@@ -354,7 +356,7 @@ export function HumanBody3D({
       <Canvas
         camera={{ position: [0, 0.4, 3.2], fov: 45 }}
         shadows={highQuality}
-        dpr={highQuality ? [1, 1.75] : [1, 1]}
+        dpr={highQuality ? [1, lod.highDprMax] : [1, lod.lowDprMax]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         performance={{ min: 0.5 }}
       >
