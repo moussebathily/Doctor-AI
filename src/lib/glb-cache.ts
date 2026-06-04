@@ -12,7 +12,7 @@
  * panel can render real load time / asset size / cache hit ratio.
  */
 
-import { recordGLBLoad } from "./glb-diagnostics";
+import { recordGLBLoad, recordGLBError } from "./glb-diagnostics";
 
 const CACHE_NAME = "glb-cache-v1";
 const MAX_RETRIES = 3;
