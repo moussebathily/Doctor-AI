@@ -204,3 +204,36 @@ export async function clearGLBCache(): Promise<void> {
   if (!cachesAvailable()) return;
   await caches.delete(CACHE_NAME);
 }
+
+export type CachedEntry = { url: string; bytes: number; contentType: string };
+
+/** List every URL stored in the offline cache (with byte size). */
+export async function listCachedGLBs(): Promise<CachedEntry[]> {
+  const c = await openCache();
+  if (!c) return [];
+  const reqs = await c.keys();
+  const out: CachedEntry[] = [];
+  for (const r of reqs) {
+    try {
+      const res = await c.match(r);
+      if (!res) continue;
+      const blob = await res.clone().blob();
+      out.push({ url: r.url, bytes: blob.size, contentType: blob.type });
+    } catch { /* skip */ }
+  }
+  return out;
+}
+
+/** Drop a single entry from the cache. */
+export async function deleteCachedGLB(url: string): Promise<boolean> {
+  const c = await openCache();
+  if (!c) return false;
+  return c.delete(url);
+}
+
+/** Force-refresh a cached URL (delete then refetch). */
+export async function refreshCachedGLB(url: string): Promise<void> {
+  await deleteCachedGLB(url);
+  await prefetchGLB(url);
+}
+
