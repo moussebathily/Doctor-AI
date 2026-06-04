@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
 import { DRACOLoader, KTX2Loader } from "three-stdlib";
@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemSidebar";
 import { fetchGLBWithCache, prefetchGLB, type FetchProgress } from "@/lib/glb-cache";
 import { initDiagnostics, recordFps } from "@/lib/glb-diagnostics";
+import { getLodSettings, subscribeLod } from "@/lib/lod-settings";
 import { AlertCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
