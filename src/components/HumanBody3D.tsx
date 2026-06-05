@@ -8,7 +8,7 @@ import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemS
 import { fetchGLBWithCache, prefetchGLB, type FetchProgress } from "@/lib/glb-cache";
 import { initDiagnostics, recordFps } from "@/lib/glb-diagnostics";
 import { getLodSettings, subscribeLod } from "@/lib/lod-settings";
-import { AlertCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { AlertCircle, RefreshCw, Wifi, WifiOff, Repeat } from "lucide-react";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
 
@@ -105,6 +105,14 @@ function GLBLoaderOverlay({
             <WifiOff className="w-3.5 h-3.5 text-warning" />
           )}
           <span className="flex-1 truncate">{label}</span>
+          {progress.resumed && (
+            <span
+              title="Reprise via requête HTTP Range"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal/15 text-teal text-[9px] font-semibold uppercase tracking-wider"
+            >
+              <Repeat className="w-2.5 h-2.5" /> Range
+            </span>
+          )}
           {progress.total && (
             <span className="font-mono text-[10px] text-muted-foreground">
               {(progress.loaded / 1024 / 1024).toFixed(2)} / {(progress.total / 1024 / 1024).toFixed(2)} MB
@@ -115,6 +123,11 @@ function GLBLoaderOverlay({
           <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
             <div className="h-full bg-teal transition-all" style={{ width: `${pct}%` }} />
           </div>
+        )}
+        {progress.resumed && progress.stage === "downloading" && (
+          <p className="text-[9px] text-muted-foreground">
+            Reprise du téléchargement à {(progress.loaded / 1024 / 1024).toFixed(2)} MB sans recommencer.
+          </p>
         )}
         {(error || progress.stage === "error") && (
           <button

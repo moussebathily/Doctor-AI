@@ -4,7 +4,7 @@ import {
 } from "@/lib/glb-diagnostics";
 import { clearGLBCache, isCached } from "@/lib/glb-cache";
 import { getLodSettings, setLodSettings, subscribeLod, resetLodSettings, LOD_DEFAULTS } from "@/lib/lod-settings";
-import { runARSwapTest, type ARTestReport } from "@/lib/ar-test";
+import { runARSwapTest, saveARTestRun, type ARTestReport } from "@/lib/ar-test";
 import type { ViewerMode } from "@/components/ar/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,7 @@ export function DiagnosticsPanel({
     try {
       const report = await runARSwapTest(onSetViewerMode);
       setArReport(report);
+      saveARTestRun(report);
     } finally {
       setArRunning(false);
     }
@@ -204,20 +205,33 @@ export function DiagnosticsPanel({
             {arRunning ? "Test en cours…" : "Lancer bascule Web → AR → Web"}
           </Button>
           {arReport && (
-            <ul className="space-y-0.5 text-[10px]">
-              {arReport.steps.map((s, i) => (
-                <li key={i} className="flex items-start gap-1.5">
-                  {s.ok
-                    ? <CheckCircle2 className="w-2.5 h-2.5 text-teal mt-0.5 shrink-0" />
-                    : <XCircle className="w-2.5 h-2.5 text-destructive mt-0.5 shrink-0" />}
-                  <span className="flex-1">
-                    <span className="font-medium">{s.name}</span>{" "}
-                    <span className="text-muted-foreground">— {s.detail} ({Math.round(s.ms)}ms)</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="grid grid-cols-4 gap-1 text-[9px] text-center">
+                <MiniMetric label="durée" value={`${Math.round(arReport.metrics.swapDurationMs)}ms`} />
+                <MiniMetric label="FPS moy" value={`${arReport.metrics.averageFps}`} tone={arReport.metrics.averageFps >= 45 ? "good" : arReport.metrics.averageFps >= 25 ? "warn" : "bad"} />
+                <MiniMetric label="FPS min" value={`${arReport.metrics.minFps}`} />
+                <MiniMetric label="drops" value={`${arReport.metrics.frameDrops}`} tone={arReport.metrics.frameDrops === 0 ? "good" : "warn"} />
+              </div>
+              <ul className="space-y-0.5 text-[10px]">
+                {arReport.steps.map((s, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    {s.ok
+                      ? <CheckCircle2 className="w-2.5 h-2.5 text-teal mt-0.5 shrink-0" />
+                      : <XCircle className="w-2.5 h-2.5 text-destructive mt-0.5 shrink-0" />}
+                    <span className="flex-1">
+                      <span className="font-medium">{s.name}</span>{" "}
+                      <span className="text-muted-foreground">— {s.detail} ({Math.round(s.ms)}ms)</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
+          <Button asChild variant="ghost" size="sm" className="w-full h-6 text-[10px]">
+            <Link to="/ar-test">
+              <PlayCircle className="w-3 h-3 mr-1.5" /> Historique complet des tests AR
+            </Link>
+          </Button>
         </div>
       )}
 
@@ -300,6 +314,16 @@ function LodSlider({
         min={min} max={max} step={step}
         onValueChange={(v) => onChange(v[0] ?? value)}
       />
+    </div>
+  );
+}
+
+function MiniMetric({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" | "bad" }) {
+  const color = tone === "good" ? "text-teal" : tone === "warn" ? "text-warning" : tone === "bad" ? "text-destructive" : "text-foreground";
+  return (
+    <div className="rounded-md bg-background/50 border border-border px-1 py-1">
+      <div className={`font-mono font-semibold text-[10px] ${color}`}>{value}</div>
+      <div className="text-[8px] uppercase tracking-wider text-muted-foreground">{label}</div>
     </div>
   );
 }

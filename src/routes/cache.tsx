@@ -137,15 +137,34 @@ function CachePage() {
               {entries.map((e) => {
                 const name = decodeURIComponent(e.url.split("/").pop() ?? e.url);
                 const isBusy = busy === e.url;
+                const ttlDays = e.ttlMs ? Math.round(e.ttlMs / (24 * 60 * 60 * 1000)) : 0;
+                const remainingMs = e.expiresAt ? e.expiresAt - Date.now() : null;
+                const remainingLabel = remainingMs === null
+                  ? "permanent"
+                  : remainingMs <= 0
+                    ? "expiré"
+                    : remainingMs < 60 * 60 * 1000
+                      ? `${Math.max(1, Math.round(remainingMs / 60000))} min`
+                      : remainingMs < 24 * 60 * 60 * 1000
+                        ? `${Math.round(remainingMs / (60 * 60 * 1000))} h`
+                        : `${Math.round(remainingMs / (24 * 60 * 60 * 1000))} j`;
                 return (
                   <li key={e.url} className="px-4 py-3 flex items-center gap-3 flex-wrap">
                     <div className="min-w-0 flex-1">
                       <p className="font-mono text-sm truncate" title={e.url}>{name}</p>
                       <p className="text-[10px] text-muted-foreground truncate" title={e.url}>{e.url}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        TTL : <span className="font-mono">{ttlDays || "∞"}{ttlDays ? " j" : ""}</span>
+                        {" · "}
+                        Expire dans : <span className={`font-mono ${e.expired ? "text-destructive" : ""}`}>{remainingLabel}</span>
+                      </p>
                     </div>
                     <Badge variant="secondary" className="text-[10px] font-mono">
                       {fmtBytes(e.bytes)}
                     </Badge>
+                    {e.expired && (
+                      <Badge variant="outline" className="text-[10px] text-destructive">expiré</Badge>
+                    )}
                     <div className="flex gap-1.5">
                       <Button
                         size="sm" variant="outline" disabled={isBusy || !online}
