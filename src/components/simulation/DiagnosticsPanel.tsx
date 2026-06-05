@@ -318,5 +318,15 @@ function LodSlider({
   );
 }
 
+function MiniMetric({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" | "bad" }) {
+  const color = tone === "good" ? "text-teal" : tone === "warn" ? "text-warning" : tone === "bad" ? "text-destructive" : "text-foreground";
+  return (
+    <div className="rounded-md bg-background/50 border border-border px-1 py-1">
+      <div className={`font-mono font-semibold text-[10px] ${color}`}>{value}</div>
+      <div className="text-[8px] uppercase tracking-wider text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
 // Silence unused-import warning when RefreshCw is reserved for future cache row UI.
 void RefreshCw;
