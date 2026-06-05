@@ -4,7 +4,7 @@ import {
 } from "@/lib/glb-diagnostics";
 import { clearGLBCache, isCached } from "@/lib/glb-cache";
 import { getLodSettings, setLodSettings, subscribeLod, resetLodSettings, LOD_DEFAULTS } from "@/lib/lod-settings";
-import { runARSwapTest, type ARTestReport } from "@/lib/ar-test";
+import { runARSwapTest, saveARTestRun, type ARTestReport } from "@/lib/ar-test";
 import type { ViewerMode } from "@/components/ar/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
