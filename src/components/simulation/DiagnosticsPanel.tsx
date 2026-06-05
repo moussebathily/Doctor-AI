@@ -74,6 +74,7 @@ export function DiagnosticsPanel({
     try {
       const report = await runARSwapTest(onSetViewerMode);
       setArReport(report);
+      saveARTestRun(report);
     } finally {
       setArRunning(false);
     }
