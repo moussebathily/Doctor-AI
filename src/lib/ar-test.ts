@@ -7,11 +7,12 @@
  *   - props shape stays identical across modes (no refactor needed)
  *   - a mode-change cycle completes without exceptions
  *
- * The test is intentionally lightweight — it does NOT mount React,
- * since the facade is the contract. It exercises the same indirection
- * used at runtime.
+ * The test ALSO captures render-timing metrics during the swap so the
+ * dedicated AR test page (and the diagnostics JSON export) can surface
+ * average FPS, lowest FPS, frame-drop count and total wall time.
  */
 import type { AnatomyViewerProps, ViewerMode } from "@/components/ar/types";
+import { getDiagnostics } from "./glb-diagnostics";
 
 export type ARTestStep = {
   name: string;
@@ -20,11 +21,27 @@ export type ARTestStep = {
   ms: number;
 };
 
+export type ARRenderMetrics = {
+  /** Wall time spent inside the swap cycle (ms). */
+  swapDurationMs: number;
+  /** Average FPS sampled across the swap. */
+  averageFps: number;
+  /** Lowest FPS sample observed. */
+  minFps: number;
+  /** Highest FPS sample observed. */
+  maxFps: number;
+  /** Count of FPS samples below the 30 FPS smooth-render threshold. */
+  frameDrops: number;
+  /** Raw FPS samples captured during the swap (1 Hz). */
+  samples: number[];
+};
+
 export type ARTestReport = {
   passed: boolean;
   startedAt: number;
   totalMs: number;
   steps: ARTestStep[];
+  metrics: ARRenderMetrics;
 };
 
 async function step(
@@ -54,13 +71,51 @@ const stepSync = (name: string, fn: () => string): ARTestStep => {
   }
 };
 
+const DROP_THRESHOLD = 30;
+
+/** Start a 1 Hz FPS sampler that reads from the diagnostics store. */
+function startFpsSampler() {
+  const samples: number[] = [];
+  const start = performance.now();
+  const id = setInterval(() => {
+    const fps = getDiagnostics().fps;
+    if (fps > 0) samples.push(fps);
+  }, 250);
+  return {
+    stop(): ARRenderMetrics {
+      clearInterval(id);
+      const swapDurationMs = performance.now() - start;
+      if (samples.length === 0) {
+        return {
+          swapDurationMs,
+          averageFps: 0,
+          minFps: 0,
+          maxFps: 0,
+          frameDrops: 0,
+          samples: [],
+        };
+      }
+      const sum = samples.reduce((a, b) => a + b, 0);
+      return {
+        swapDurationMs,
+        averageFps: Math.round((sum / samples.length) * 10) / 10,
+        minFps: Math.min(...samples),
+        maxFps: Math.max(...samples),
+        frameDrops: samples.filter((s) => s < DROP_THRESHOLD).length,
+        samples,
+      };
+    },
+  };
+}
+
 export async function runARSwapTest(
   setMode: (m: ViewerMode) => void,
 ): Promise<ARTestReport> {
   const startedAt = Date.now();
   const steps: ARTestStep[] = [];
+  const t0 = performance.now();
+  const sampler = startFpsSampler();
 
-  // 1. Import the facade + types and assert adapter map covers web + ar.
   steps.push(
     await step("Import AnatomyViewer facade", async () => {
       const mod = await import("@/components/ar/AnatomyViewer");
@@ -81,7 +136,6 @@ export async function runARSwapTest(
     }),
   );
 
-  // 2. Contract check — props shape must remain identical for any mode.
   steps.push(
     stepSync("Contrat AnatomyViewerProps stable", () => {
       const base: AnatomyViewerProps = {
@@ -100,11 +154,10 @@ export async function runARSwapTest(
     }),
   );
 
-  // 3. Live swap web → ar → web in the host UI.
   steps.push(
     await step("Bascule Web → AR", async () => {
       setMode("ar");
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 500));
       return "Adapter AR monté sans refactor";
     }),
   );
@@ -112,16 +165,49 @@ export async function runARSwapTest(
   steps.push(
     await step("Bascule AR → Web", async () => {
       setMode("web");
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 500));
       return "Retour WebGL OK";
     }),
   );
 
-  const totalMs = performance.now() - (steps[0]?.ms ?? 0);
+  const metrics = sampler.stop();
+  const totalMs = performance.now() - t0;
   return {
     passed: steps.every((s) => s.ok),
     startedAt,
     totalMs,
     steps,
+    metrics,
   };
+}
+
+// ── Run history persistence ────────────────────────────────────────────
+
+const HISTORY_KEY = "doctorai_ar_test_history_v1";
+const MAX_HISTORY = 20;
+
+export function getARTestHistory(): ARTestReport[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveARTestRun(r: ARTestReport): ARTestReport[] {
+  if (typeof window === "undefined") return [];
+  const next = [r, ...getARTestHistory()].slice(0, MAX_HISTORY);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  } catch { /* quota */ }
+  return next;
+}
+
+export function clearARTestHistory(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(HISTORY_KEY);
 }
