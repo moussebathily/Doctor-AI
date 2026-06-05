@@ -16,8 +16,8 @@ import { Route as PharmacyRouteImport } from './routes/pharmacy'
 import { Route as LabRouteImport } from './routes/lab'
 import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as CacheRouteImport } from './routes/cache'
-import { Route as ArTestRouteImport } from './routes/ar-test'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ArTestRouteImport } from './routes/ar-test'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SimulationRoute = SimulationRouteImport.update({
@@ -55,14 +55,14 @@ const CacheRoute = CacheRouteImport.update({
   path: '/cache',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ArTestRoute = ArTestRouteImport.update({
-  id: '/ar-test',
-  path: '/ar-test',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArTestRoute = ArTestRouteImport.update({
+  id: '/ar-test',
+  path: '/ar-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -73,8 +73,8 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/ar-test': typeof ArTestRoute
+  '/auth': typeof AuthRoute
   '/cache': typeof CacheRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
@@ -85,8 +85,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/ar-test': typeof ArTestRoute
+  '/auth': typeof AuthRoute
   '/cache': typeof CacheRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
@@ -98,8 +98,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/ar-test': typeof ArTestRoute
+  '/auth': typeof AuthRoute
   '/cache': typeof CacheRoute
   '/doctor': typeof DoctorRoute
   '/lab': typeof LabRoute
@@ -112,8 +112,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/ar-test'
+    | '/auth'
     | '/cache'
     | '/doctor'
     | '/lab'
@@ -124,8 +124,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/ar-test'
+    | '/auth'
     | '/cache'
     | '/doctor'
     | '/lab'
@@ -136,8 +136,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/auth'
     | '/ar-test'
+    | '/auth'
     | '/cache'
     | '/doctor'
     | '/lab'
@@ -149,8 +149,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthRoute: typeof AuthRoute
   ArTestRoute: typeof ArTestRoute
+  AuthRoute: typeof AuthRoute
   CacheRoute: typeof CacheRoute
   DoctorRoute: typeof DoctorRoute
   LabRoute: typeof LabRoute
@@ -211,18 +211,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CacheRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ar-test': {
-      id: '/ar-test'
-      path: '/ar-test'
-      fullPath: '/ar-test'
-      preLoaderRoute: typeof ArTestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ar-test': {
+      id: '/ar-test'
+      path: '/ar-test'
+      fullPath: '/ar-test'
+      preLoaderRoute: typeof ArTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -237,8 +237,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
   ArTestRoute: ArTestRoute,
+  AuthRoute: AuthRoute,
   CacheRoute: CacheRoute,
   DoctorRoute: DoctorRoute,
   LabRoute: LabRoute,
