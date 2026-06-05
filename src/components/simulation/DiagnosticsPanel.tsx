@@ -205,20 +205,33 @@ export function DiagnosticsPanel({
             {arRunning ? "Test en cours…" : "Lancer bascule Web → AR → Web"}
           </Button>
           {arReport && (
-            <ul className="space-y-0.5 text-[10px]">
-              {arReport.steps.map((s, i) => (
-                <li key={i} className="flex items-start gap-1.5">
-                  {s.ok
-                    ? <CheckCircle2 className="w-2.5 h-2.5 text-teal mt-0.5 shrink-0" />
-                    : <XCircle className="w-2.5 h-2.5 text-destructive mt-0.5 shrink-0" />}
-                  <span className="flex-1">
-                    <span className="font-medium">{s.name}</span>{" "}
-                    <span className="text-muted-foreground">— {s.detail} ({Math.round(s.ms)}ms)</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="grid grid-cols-4 gap-1 text-[9px] text-center">
+                <MiniMetric label="durée" value={`${Math.round(arReport.metrics.swapDurationMs)}ms`} />
+                <MiniMetric label="FPS moy" value={`${arReport.metrics.averageFps}`} tone={arReport.metrics.averageFps >= 45 ? "good" : arReport.metrics.averageFps >= 25 ? "warn" : "bad"} />
+                <MiniMetric label="FPS min" value={`${arReport.metrics.minFps}`} />
+                <MiniMetric label="drops" value={`${arReport.metrics.frameDrops}`} tone={arReport.metrics.frameDrops === 0 ? "good" : "warn"} />
+              </div>
+              <ul className="space-y-0.5 text-[10px]">
+                {arReport.steps.map((s, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    {s.ok
+                      ? <CheckCircle2 className="w-2.5 h-2.5 text-teal mt-0.5 shrink-0" />
+                      : <XCircle className="w-2.5 h-2.5 text-destructive mt-0.5 shrink-0" />}
+                    <span className="flex-1">
+                      <span className="font-medium">{s.name}</span>{" "}
+                      <span className="text-muted-foreground">— {s.detail} ({Math.round(s.ms)}ms)</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
+          <Button asChild variant="ghost" size="sm" className="w-full h-6 text-[10px]">
+            <Link to="/ar-test">
+              <PlayCircle className="w-3 h-3 mr-1.5" /> Historique complet des tests AR
+            </Link>
+          </Button>
         </div>
       )}
 
