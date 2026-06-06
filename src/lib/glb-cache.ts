@@ -17,9 +17,9 @@
  */
 
 import { recordGLBLoad, recordGLBError } from "./glb-diagnostics";
+import { backoffFor, getRetryPolicy } from "./glb-retry-policy";
 
 const CACHE_NAME = "glb-cache-v1";
-const MAX_RETRIES = 3;
 
 /** Default lifetime for cached GLBs (7 days). Override per call via `ttlMs`. */
 export const DEFAULT_GLB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
