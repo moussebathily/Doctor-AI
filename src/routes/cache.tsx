@@ -3,13 +3,17 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   listCachedGLBs, deleteCachedGLB, refreshCachedGLB, clearGLBCache,
   type CachedEntry,
 } from "@/lib/glb-cache";
+import {
+  isAutoRefreshEnabled, setAutoRefresh, runAutoRefresh,
+} from "@/lib/glb-auto-refresh";
 import { fmtBytes } from "@/lib/glb-diagnostics";
 import { toast } from "sonner";
-import { ArrowLeft, Database, HardDrive, RefreshCw, Trash2, FileBox, WifiOff, Wifi } from "lucide-react";
+import { ArrowLeft, Database, HardDrive, RefreshCw, Trash2, FileBox, WifiOff, Wifi, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/cache")({
   head: () => ({
