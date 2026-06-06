@@ -22,6 +22,7 @@ export function DiagnosticsPanel({
 }) {
   const d = useSyncExternalStore(subscribe, getDiagnostics, getDiagnostics);
   const lod = useSyncExternalStore(subscribeLod, getLodSettings, getLodSettings);
+  const retry = useSyncExternalStore(subscribeRetry, getRetryPolicy, getRetryPolicy);
   const [cached, setCached] = useState<boolean | null>(null);
   const [arReport, setArReport] = useState<ARTestReport | null>(null);
   const [arRunning, setArRunning] = useState(false);
