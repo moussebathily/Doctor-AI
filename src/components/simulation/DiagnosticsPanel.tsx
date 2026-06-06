@@ -4,6 +4,7 @@ import {
 } from "@/lib/glb-diagnostics";
 import { clearGLBCache, isCached } from "@/lib/glb-cache";
 import { getLodSettings, setLodSettings, subscribeLod, resetLodSettings, LOD_DEFAULTS } from "@/lib/lod-settings";
+import { getRetryPolicy, setRetryPolicy, subscribeRetry, RETRY_DEFAULTS } from "@/lib/glb-retry-policy";
 import { runARSwapTest, saveARTestRun, type ARTestReport } from "@/lib/ar-test";
 import type { ViewerMode } from "@/components/ar/types";
 import { Button } from "@/components/ui/button";
