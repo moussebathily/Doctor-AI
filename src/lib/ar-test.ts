@@ -13,6 +13,8 @@
  */
 import type { AnatomyViewerProps, ViewerMode } from "@/components/ar/types";
 import { getDiagnostics } from "./glb-diagnostics";
+import { getDeviceProfile, type DeviceProfile } from "./device-profile";
+import { getARThresholds, type ARThresholds } from "./ar-thresholds";
 
 export type ARTestStep = {
   name: string;
