@@ -85,14 +85,16 @@ function GLBLoaderOverlay({
   online: boolean;
   onRetry: () => void;
 }) {
+  const policy = useSyncExternalStore(subscribeRetry, getRetryPolicy, getRetryPolicy);
   if (progress.stage === "ready" || progress.stage === "idle") return null;
   const pct = progress.total ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : null;
   const label =
     progress.stage === "cache-lookup" ? "Vérification du cache offline…" :
     progress.stage === "downloading" ? `Téléchargement modèle 3D${pct !== null ? ` ${pct}%` : "…"}` :
     progress.stage === "decoding" ? "Décodage du modèle…" :
-    progress.stage === "retrying" ? `Nouvelle tentative (#${progress.attempt})…` :
+    progress.stage === "retrying" ? `Nouvelle tentative ${progress.attempt}/${policy.maxRetries}…` :
     progress.stage === "error" ? "Échec du téléchargement" : "Chargement…";
+  const showAttempt = progress.attempt > 0 && (progress.stage === "retrying" || progress.stage === "downloading" || progress.stage === "error");
 
   return (
     <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
