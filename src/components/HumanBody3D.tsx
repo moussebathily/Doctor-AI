@@ -116,6 +116,14 @@ function GLBLoaderOverlay({
               <Repeat className="w-2.5 h-2.5" /> Range
             </span>
           )}
+          {showAttempt && (
+            <span
+              title={`Politique : ${policy.maxRetries} tentatives max, backoff x${policy.factor} (base ${policy.baseDelayMs}ms)`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-warning/15 text-warning text-[9px] font-semibold uppercase tracking-wider"
+            >
+              <RefreshCw className="w-2.5 h-2.5" /> {progress.attempt}/{policy.maxRetries}
+            </span>
+          )}
           {progress.total && (
             <span className="font-mono text-[10px] text-muted-foreground">
               {(progress.loaded / 1024 / 1024).toFixed(2)} / {(progress.total / 1024 / 1024).toFixed(2)} MB
