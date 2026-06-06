@@ -181,6 +181,49 @@ export function DiagnosticsPanel({
         </p>
       </div>
 
+      {/* ── Retry / backoff policy ────────────────────────────────── */}
+      <div className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold flex items-center gap-1">
+            <RefreshCw className="w-2.5 h-2.5" /> Retry GLB (Range)
+          </p>
+          <button
+            type="button"
+            onClick={() => setRetryPolicy(RETRY_DEFAULTS)}
+            className="text-[9px] text-muted-foreground hover:text-foreground"
+          >
+            reset
+          </button>
+        </div>
+        <LodSlider
+          label="Tentatives max"
+          value={retry.maxRetries}
+          min={1} max={8} step={1} unit="x"
+          onChange={(v) => setRetryPolicy({ maxRetries: v })}
+        />
+        <LodSlider
+          label="Backoff base"
+          value={retry.baseDelayMs}
+          min={100} max={3000} step={100} unit="ms"
+          onChange={(v) => setRetryPolicy({ baseDelayMs: v })}
+        />
+        <LodSlider
+          label="Backoff facteur"
+          value={Math.round(retry.factor * 10) / 10}
+          min={1} max={4} step={0.1} unit="x"
+          onChange={(v) => setRetryPolicy({ factor: v })}
+        />
+        <LodSlider
+          label="Backoff max"
+          value={retry.maxDelayMs}
+          min={500} max={15000} step={500} unit="ms"
+          onChange={(v) => setRetryPolicy({ maxDelayMs: v })}
+        />
+        <p className="text-[9px] text-muted-foreground">
+          Reprise via HTTP Range : si une tentative échoue, la suivante reprend à partir des octets déjà reçus.
+        </p>
+      </div>
+
       {/* ── AR auto-test ──────────────────────────────────────────── */}
       {onSetViewerMode && (
         <div className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-2">
