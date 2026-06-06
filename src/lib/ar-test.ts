@@ -13,6 +13,8 @@
  */
 import type { AnatomyViewerProps, ViewerMode } from "@/components/ar/types";
 import { getDiagnostics } from "./glb-diagnostics";
+import { getDeviceProfile, type DeviceProfile } from "./device-profile";
+import { getARThresholds, type ARThresholds } from "./ar-thresholds";
 
 export type ARTestStep = {
   name: string;
@@ -42,6 +44,8 @@ export type ARTestReport = {
   totalMs: number;
   steps: ARTestStep[];
   metrics: ARRenderMetrics;
+  device?: DeviceProfile;
+  thresholds?: ARThresholds;
 };
 
 async function step(
@@ -172,13 +176,68 @@ export async function runARSwapTest(
 
   const metrics = sampler.stop();
   const totalMs = performance.now() - t0;
+  const thresholds = getARThresholds();
+  const stepsOk = steps.every((s) => s.ok);
+  const metricsOk =
+    metrics.averageFps >= thresholds.minAverageFps &&
+    (metrics.minFps === 0 || metrics.minFps >= thresholds.minLowestFps) &&
+    metrics.frameDrops <= thresholds.maxFrameDrops &&
+    metrics.swapDurationMs <= thresholds.maxSwapDurationMs;
   return {
-    passed: steps.every((s) => s.ok),
+    passed: stepsOk && metricsOk,
     startedAt,
     totalMs,
     steps,
     metrics,
+    device: getDeviceProfile(),
+    thresholds,
   };
+}
+
+/** Group reports by device id for per-device trends. */
+export function groupByDevice(
+  history: ARTestReport[],
+): Array<{ device: DeviceProfile; runs: ARTestReport[] }> {
+  const map = new Map<string, { device: DeviceProfile; runs: ARTestReport[] }>();
+  const fallback: DeviceProfile = {
+    id: "unknown", model: "Inconnu", class: "desktop",
+    browser: "Other", os: "Other", cores: 1, memoryGb: null,
+    viewport: { w: 0, h: 0 }, dpr: 1,
+  };
+  for (const r of history) {
+    const d = r.device ?? fallback;
+    if (!map.has(d.id)) map.set(d.id, { device: d, runs: [] });
+    map.get(d.id)!.runs.push(r);
+  }
+  return [...map.values()].sort((a, b) => b.runs.length - a.runs.length);
+}
+
+/** CSV serialization of the run history (one row per run). */
+export function exportHistoryCsv(history: ARTestReport[]): string {
+  const headers = [
+    "startedAt", "isoDate", "passed", "totalMs",
+    "averageFps", "minFps", "maxFps", "frameDrops", "swapDurationMs",
+    "deviceModel", "deviceClass", "browser", "os", "cores", "memoryGb",
+    "viewportW", "viewportH", "dpr",
+    "minAverageFps", "minLowestFps", "maxFrameDrops", "maxSwapDurationMs",
+  ];
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = history.map((r) => [
+    r.startedAt, new Date(r.startedAt).toISOString(),
+    r.passed, Math.round(r.totalMs),
+    r.metrics.averageFps, r.metrics.minFps, r.metrics.maxFps,
+    r.metrics.frameDrops, Math.round(r.metrics.swapDurationMs),
+    r.device?.model ?? "", r.device?.class ?? "",
+    r.device?.browser ?? "", r.device?.os ?? "",
+    r.device?.cores ?? "", r.device?.memoryGb ?? "",
+    r.device?.viewport.w ?? "", r.device?.viewport.h ?? "", r.device?.dpr ?? "",
+    r.thresholds?.minAverageFps ?? "", r.thresholds?.minLowestFps ?? "",
+    r.thresholds?.maxFrameDrops ?? "", r.thresholds?.maxSwapDurationMs ?? "",
+  ].map(esc).join(","));
+  return [headers.join(","), ...rows].join("\n");
 }
 
 // ── Run history persistence ────────────────────────────────────────────

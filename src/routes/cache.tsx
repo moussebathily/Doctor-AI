@@ -3,13 +3,17 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   listCachedGLBs, deleteCachedGLB, refreshCachedGLB, clearGLBCache,
   type CachedEntry,
 } from "@/lib/glb-cache";
+import {
+  isAutoRefreshEnabled, setAutoRefresh, runAutoRefresh,
+} from "@/lib/glb-auto-refresh";
 import { fmtBytes } from "@/lib/glb-diagnostics";
 import { toast } from "sonner";
-import { ArrowLeft, Database, HardDrive, RefreshCw, Trash2, FileBox, WifiOff, Wifi } from "lucide-react";
+import { ArrowLeft, Database, HardDrive, RefreshCw, Trash2, FileBox, WifiOff, Wifi, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/cache")({
   head: () => ({
@@ -35,7 +39,13 @@ function CachePage() {
   };
 
   useEffect(() => {
-    refresh();
+    (async () => {
+      const r = await runAutoRefresh();
+      if (r.refreshed.length > 0) {
+        toast.success(`${r.refreshed.length} modèle(s) rafraîchi(s) automatiquement`);
+      }
+      await refresh();
+    })();
     if (typeof navigator !== "undefined") setOnline(navigator.onLine);
     const on = () => setOnline(true);
     const off = () => setOnline(false);
@@ -148,6 +158,7 @@ function CachePage() {
                       : remainingMs < 24 * 60 * 60 * 1000
                         ? `${Math.round(remainingMs / (60 * 60 * 1000))} h`
                         : `${Math.round(remainingMs / (24 * 60 * 60 * 1000))} j`;
+                const auto = isAutoRefreshEnabled(e.url);
                 return (
                   <li key={e.url} className="px-4 py-3 flex items-center gap-3 flex-wrap">
                     <div className="min-w-0 flex-1">
@@ -165,6 +176,14 @@ function CachePage() {
                     {e.expired && (
                       <Badge variant="outline" className="text-[10px] text-destructive">expiré</Badge>
                     )}
+                    <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground select-none cursor-pointer" title="Re-télécharger automatiquement à l'expiration">
+                      <Zap className={`w-3 h-3 ${auto ? "text-teal" : ""}`} />
+                      Auto
+                      <Switch
+                        checked={auto}
+                        onCheckedChange={(v) => { setAutoRefresh(e.url, v); refresh(); }}
+                      />
+                    </label>
                     <div className="flex gap-1.5">
                       <Button
                         size="sm" variant="outline" disabled={isBusy || !online}

@@ -8,6 +8,7 @@ import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemS
 import { fetchGLBWithCache, prefetchGLB, type FetchProgress } from "@/lib/glb-cache";
 import { initDiagnostics, recordFps } from "@/lib/glb-diagnostics";
 import { getLodSettings, subscribeLod } from "@/lib/lod-settings";
+import { getRetryPolicy, subscribeRetry } from "@/lib/glb-retry-policy";
 import { AlertCircle, RefreshCw, Wifi, WifiOff, Repeat } from "lucide-react";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
@@ -84,14 +85,16 @@ function GLBLoaderOverlay({
   online: boolean;
   onRetry: () => void;
 }) {
+  const policy = useSyncExternalStore(subscribeRetry, getRetryPolicy, getRetryPolicy);
   if (progress.stage === "ready" || progress.stage === "idle") return null;
   const pct = progress.total ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : null;
   const label =
     progress.stage === "cache-lookup" ? "Vérification du cache offline…" :
     progress.stage === "downloading" ? `Téléchargement modèle 3D${pct !== null ? ` ${pct}%` : "…"}` :
     progress.stage === "decoding" ? "Décodage du modèle…" :
-    progress.stage === "retrying" ? `Nouvelle tentative (#${progress.attempt})…` :
+    progress.stage === "retrying" ? `Nouvelle tentative ${progress.attempt}/${policy.maxRetries}…` :
     progress.stage === "error" ? "Échec du téléchargement" : "Chargement…";
+  const showAttempt = progress.attempt > 0 && (progress.stage === "retrying" || progress.stage === "downloading" || progress.stage === "error");
 
   return (
     <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
@@ -111,6 +114,14 @@ function GLBLoaderOverlay({
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal/15 text-teal text-[9px] font-semibold uppercase tracking-wider"
             >
               <Repeat className="w-2.5 h-2.5" /> Range
+            </span>
+          )}
+          {showAttempt && (
+            <span
+              title={`Politique : ${policy.maxRetries} tentatives max, backoff x${policy.factor} (base ${policy.baseDelayMs}ms)`}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-warning/15 text-warning text-[9px] font-semibold uppercase tracking-wider"
+            >
+              <RefreshCw className="w-2.5 h-2.5" /> {progress.attempt}/{policy.maxRetries}
             </span>
           )}
           {progress.total && (

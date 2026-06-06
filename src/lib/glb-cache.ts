@@ -17,9 +17,9 @@
  */
 
 import { recordGLBLoad, recordGLBError } from "./glb-diagnostics";
+import { backoffFor, getRetryPolicy } from "./glb-retry-policy";
 
 const CACHE_NAME = "glb-cache-v1";
-const MAX_RETRIES = 3;
 
 /** Default lifetime for cached GLBs (7 days). Override per call via `ttlMs`. */
 export const DEFAULT_GLB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -201,9 +201,10 @@ export async function fetchGLBWithCache(
   }
 
   if (!response) {
+    const policy = getRetryPolicy();
     const resume = { chunks: [] as Uint8Array[], loaded: 0, total: null as number | null };
     let lastErr: unknown;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 1; attempt <= policy.maxRetries; attempt++) {
       try {
         const { response: fresh } = await fetchWithProgress(url, opts, attempt, resume);
         if (cache) {
@@ -215,8 +216,8 @@ export async function fetchGLBWithCache(
         lastErr = err;
         const msg = err instanceof Error ? err.message : String(err);
         recordGLBError({ url, message: msg, attempt });
-        if (attempt < MAX_RETRIES) {
-          const backoff = 400 * 2 ** (attempt - 1);
+        if (attempt < policy.maxRetries) {
+          const backoff = backoffFor(attempt, policy);
           opts.onProgress?.({
             loaded: resume.loaded,
             total: resume.total,
@@ -231,8 +232,8 @@ export async function fetchGLBWithCache(
     }
     if (!response) {
       const msg = lastErr instanceof Error ? lastErr.message : "network error";
-      opts.onProgress?.({ loaded: resume.loaded, total: resume.total, stage: "error", attempt: MAX_RETRIES, error: msg });
-      throw new Error(`GLB download failed after ${MAX_RETRIES} attempts: ${msg}`);
+      opts.onProgress?.({ loaded: resume.loaded, total: resume.total, stage: "error", attempt: policy.maxRetries, error: msg });
+      throw new Error(`GLB download failed after ${policy.maxRetries} attempts: ${msg}`);
     }
   }
 
