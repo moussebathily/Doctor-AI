@@ -39,7 +39,13 @@ function CachePage() {
   };
 
   useEffect(() => {
-    refresh();
+    (async () => {
+      const r = await runAutoRefresh();
+      if (r.refreshed.length > 0) {
+        toast.success(`${r.refreshed.length} modèle(s) rafraîchi(s) automatiquement`);
+      }
+      await refresh();
+    })();
     if (typeof navigator !== "undefined") setOnline(navigator.onLine);
     const on = () => setOnline(true);
     const off = () => setOnline(false);
