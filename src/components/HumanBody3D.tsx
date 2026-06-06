@@ -8,6 +8,7 @@ import type { AnatomySystem, AnatomyView } from "@/components/simulation/SystemS
 import { fetchGLBWithCache, prefetchGLB, type FetchProgress } from "@/lib/glb-cache";
 import { initDiagnostics, recordFps } from "@/lib/glb-diagnostics";
 import { getLodSettings, subscribeLod } from "@/lib/lod-settings";
+import { getRetryPolicy, subscribeRetry } from "@/lib/glb-retry-policy";
 import { AlertCircle, RefreshCw, Wifi, WifiOff, Repeat } from "lucide-react";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
