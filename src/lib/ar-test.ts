@@ -44,6 +44,8 @@ export type ARTestReport = {
   totalMs: number;
   steps: ARTestStep[];
   metrics: ARRenderMetrics;
+  device?: DeviceProfile;
+  thresholds?: ARThresholds;
 };
 
 async function step(
