@@ -158,6 +158,7 @@ function CachePage() {
                       : remainingMs < 24 * 60 * 60 * 1000
                         ? `${Math.round(remainingMs / (60 * 60 * 1000))} h`
                         : `${Math.round(remainingMs / (24 * 60 * 60 * 1000))} j`;
+                const auto = isAutoRefreshEnabled(e.url);
                 return (
                   <li key={e.url} className="px-4 py-3 flex items-center gap-3 flex-wrap">
                     <div className="min-w-0 flex-1">
@@ -175,6 +176,14 @@ function CachePage() {
                     {e.expired && (
                       <Badge variant="outline" className="text-[10px] text-destructive">expiré</Badge>
                     )}
+                    <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground select-none cursor-pointer" title="Re-télécharger automatiquement à l'expiration">
+                      <Zap className={`w-3 h-3 ${auto ? "text-teal" : ""}`} />
+                      Auto
+                      <Switch
+                        checked={auto}
+                        onCheckedChange={(v) => { setAutoRefresh(e.url, v); refresh(); }}
+                      />
+                    </label>
                     <div className="flex gap-1.5">
                       <Button
                         size="sm" variant="outline" disabled={isBusy || !online}
