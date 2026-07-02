@@ -1,11 +1,10 @@
-import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Step } from "@/lib/operations";
 
 export function StepsPanel({ steps, currentStep }: { steps: Step[]; currentStep: number }) {
   return (
-    <div className="rounded-2xl border border-border bg-card/60 backdrop-blur p-3">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2 px-1">Étapes de l'opération</p>
+    <div className="rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur p-4">
+      <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold mb-3 px-1">Étapes de l'opération</p>
       <ol className="space-y-1">
         {steps.map((s, i) => {
           const done = i < currentStep;
@@ -14,22 +13,25 @@ export function StepsPanel({ steps, currentStep }: { steps: Step[]; currentStep:
             <li
               key={i}
               className={cn(
-                "flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all",
-                active && "bg-accent text-accent-foreground shadow-[0_0_18px_-4px_oklch(0.72_0.11_200/0.45)] font-semibold",
-                done && "text-foreground/90",
-                !active && !done && "text-muted-foreground hover:bg-muted/40",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all",
+                active && "bg-sky-500 text-white font-semibold shadow-[0_6px_20px_-6px_oklch(0.65_0.2_240/0.7)]",
+                done && !active && "text-slate-300",
+                !active && !done && "text-slate-400 hover:bg-white/5",
               )}
             >
               <span
                 className={cn(
-                  "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
-                  active ? "bg-white/20 text-white" : done ? "bg-success/20 text-success" : "border border-current",
+                  "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                  active
+                    ? "bg-white/20 text-white"
+                    : done
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-white/5 text-slate-400 border border-white/10",
                 )}
               >
                 {i + 1}
               </span>
               <span className="flex-1 truncate">{s.title}</span>
-              {done && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
             </li>
           );
         })}
