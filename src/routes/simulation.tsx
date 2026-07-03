@@ -684,6 +684,56 @@ function SimulationPage() {
           <MedicalDisclaimer />
         </div>
         <OrganInfoPanel organ={pickedOrgan} onClose={() => setPickedOrgan(null)} />
+
+        <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+          <DialogContent className="bg-[oklch(0.16_0.035_252)] border-white/10 text-slate-100">
+            <DialogHeader>
+              <DialogTitle className="text-white">Notes de session</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Vos observations sur « {selected.name} ». Sauvegardées localement.
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={10}
+              placeholder="Ex : penser à vérifier la ligature de la base…"
+              className="bg-white/5 border-white/10 text-slate-100"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNotesOpen(false)} className="bg-white/5 border-white/10 text-slate-100 hover:bg-white/10">Fermer</Button>
+              <Button onClick={saveNotes} className="bg-sky-500 hover:bg-sky-400 text-white">Enregistrer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={casesOpen} onOpenChange={setCasesOpen}>
+          <DialogContent className="bg-[oklch(0.16_0.035_252)] border-white/10 text-slate-100 max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-white">Cas pratiques</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Sélectionnez un scénario pour recharger un profil patient adapté.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {OPERATIONS.map((op) => (
+                <button
+                  key={op.id}
+                  onClick={() => { launch(op); setCasesOpen(false); }}
+                  className="w-full text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-white text-sm">{op.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{op.description}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] border-white/10 text-slate-300 shrink-0">{op.difficulty}</Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </AppShell>
     );
   }
