@@ -111,7 +111,22 @@ function SimulationPage() {
   const [viewerMode] = useState<ViewerMode>("web");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [casesOpen, setCasesOpen] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  const notesKey = selected ? `doctorai_notes_${selected.id}` : null;
+  useEffect(() => {
+    if (!notesKey || typeof window === "undefined") return;
+    setNotes(localStorage.getItem(notesKey) ?? "");
+  }, [notesKey]);
+  const saveNotes = () => {
+    if (!notesKey || typeof window === "undefined") return;
+    localStorage.setItem(notesKey, notes);
+    toast.success("Notes enregistrées");
+    setNotesOpen(false);
+  };
 
   const score = useMemo(() => Math.max(0, 1000 - errors * 120), [errors]);
   const scoreOn100 = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
