@@ -634,11 +634,11 @@ function SimulationPage() {
                 <button onClick={askAI} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
                   <BrainCog className="w-4 h-4" /> Aide IA
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
+                <button onClick={() => setCasesOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
                   <BookOpen className="w-4 h-4" /> Cas pratiques
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
-                  <StickyNote className="w-4 h-4" /> Notes
+                <button onClick={() => setNotesOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
+                  <StickyNote className="w-4 h-4" /> Notes{notes.trim() ? ` (${notes.trim().length})` : ""}
                 </button>
                 <button onClick={manualSave} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
                   <Save className="w-4 h-4" /> Enregistrer
