@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Pure CSS / SVG simulated endoscopic view — no external assets needed.
 const SLIDES = [
@@ -8,9 +8,13 @@ const SLIDES = [
   { id: 3, hue: 340, label: "Base appendiculaire" },
 ];
 
-export function LaparoscopicView() {
-  const [idx, setIdx] = useState(0);
-  const slide = SLIDES[idx];
+export function LaparoscopicView({ stepIndex, label }: { stepIndex?: number; label?: string } = {}) {
+  const derived = typeof stepIndex === "number" ? stepIndex % SLIDES.length : 0;
+  const [idx, setIdx] = useState(derived);
+  useEffect(() => {
+    if (typeof stepIndex === "number") setIdx(stepIndex % SLIDES.length);
+  }, [stepIndex]);
+  const slide = { ...SLIDES[idx], label: label ?? SLIDES[idx].label };
   return (
     <div className="rounded-2xl border border-border bg-card/60 backdrop-blur overflow-hidden">
       <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
