@@ -327,6 +327,7 @@ function ControlledOrbit() {
         ctrl.update();
       }
     });
+    return unsub;
   }, [camera]);
 
   useFrame((_, delta) => {
