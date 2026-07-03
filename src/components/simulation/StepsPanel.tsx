@@ -45,6 +45,7 @@ export function StepsPanel({
                 {i + 1}
               </span>
               <span className="flex-1 truncate">{s.title}</span>
+              </button>
             </li>
           );
         })}
