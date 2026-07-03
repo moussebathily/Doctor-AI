@@ -7,6 +7,8 @@ import { OPERATIONS, type Operation } from "@/lib/operations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -111,7 +113,22 @@ function SimulationPage() {
   const [viewerMode] = useState<ViewerMode>("web");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [casesOpen, setCasesOpen] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  const notesKey = selected ? `doctorai_notes_${selected.id}` : null;
+  useEffect(() => {
+    if (!notesKey || typeof window === "undefined") return;
+    setNotes(localStorage.getItem(notesKey) ?? "");
+  }, [notesKey]);
+  const saveNotes = () => {
+    if (!notesKey || typeof window === "undefined") return;
+    localStorage.setItem(notesKey, notes);
+    toast.success("Notes enregistrées");
+    setNotesOpen(false);
+  };
 
   const score = useMemo(() => Math.max(0, 1000 - errors * 120), [errors]);
   const scoreOn100 = useMemo(() => Math.max(0, 100 - errors * 12), [errors]);
@@ -435,15 +452,32 @@ function SimulationPage() {
 
             {/* Right column */}
             <div className="col-span-12 lg:col-span-3 order-3 space-y-3">
-              <StepsPanel steps={selected.steps} currentStep={stepIdx} />
-              <ToolsPanel activeTool={activeTool} onChange={setActiveTool} />
+              <StepsPanel
+                steps={selected.steps}
+                currentStep={stepIdx}
+                onSelect={(i) => {
+                  if (i < stepIdx) {
+                    setStepIdx(i);
+                    setChecked({});
+                    setAiTip("");
+                    if (soundOn) speak(`Retour à l'étape ${i + 1}.`);
+                  }
+                }}
+              />
+              <ToolsPanel
+                activeTool={activeTool}
+                onChange={(id) => {
+                  setActiveTool(id);
+                  toast.success(`Outil : ${id}`);
+                }}
+              />
 
               <div className="rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur p-4 space-y-2">
                 <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold">Description</p>
                 <p className="text-[13px] text-slate-200 leading-relaxed">{step.description}</p>
               </div>
 
-              <LaparoscopicView />
+              <LaparoscopicView stepIndex={stepIdx} label={step.title} />
             </div>
           </div>
 
@@ -602,11 +636,11 @@ function SimulationPage() {
                 <button onClick={askAI} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
                   <BrainCog className="w-4 h-4" /> Aide IA
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
+                <button onClick={() => setCasesOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
                   <BookOpen className="w-4 h-4" /> Cas pratiques
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
-                  <StickyNote className="w-4 h-4" /> Notes
+                <button onClick={() => setNotesOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
+                  <StickyNote className="w-4 h-4" /> Notes{notes.trim() ? ` (${notes.trim().length})` : ""}
                 </button>
                 <button onClick={manualSave} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-100 text-xs">
                   <Save className="w-4 h-4" /> Enregistrer
@@ -652,6 +686,56 @@ function SimulationPage() {
           <MedicalDisclaimer />
         </div>
         <OrganInfoPanel organ={pickedOrgan} onClose={() => setPickedOrgan(null)} />
+
+        <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+          <DialogContent className="bg-[oklch(0.16_0.035_252)] border-white/10 text-slate-100">
+            <DialogHeader>
+              <DialogTitle className="text-white">Notes de session</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Vos observations sur « {selected.name} ». Sauvegardées localement.
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={10}
+              placeholder="Ex : penser à vérifier la ligature de la base…"
+              className="bg-white/5 border-white/10 text-slate-100"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNotesOpen(false)} className="bg-white/5 border-white/10 text-slate-100 hover:bg-white/10">Fermer</Button>
+              <Button onClick={saveNotes} className="bg-sky-500 hover:bg-sky-400 text-white">Enregistrer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={casesOpen} onOpenChange={setCasesOpen}>
+          <DialogContent className="bg-[oklch(0.16_0.035_252)] border-white/10 text-slate-100 max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-white">Cas pratiques</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Sélectionnez un scénario pour recharger un profil patient adapté.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {OPERATIONS.map((op) => (
+                <button
+                  key={op.id}
+                  onClick={() => { launch(op); setCasesOpen(false); }}
+                  className="w-full text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-white text-sm">{op.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{op.description}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] border-white/10 text-slate-300 shrink-0">{op.difficulty}</Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </AppShell>
     );
   }
