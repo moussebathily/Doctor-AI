@@ -296,6 +296,56 @@ function Organ({
   );
 }
 
+function ControlledOrbit() {
+  const ref = useRef<any>(null);
+  const { camera } = useThree();
+  const [panEnabled, setPanEnabled] = useState(false);
+  const rotating = useRef(0);
+
+  useEffect(() => {
+    return subscribeViewport((a) => {
+      const ctrl = ref.current;
+      if (!ctrl) return;
+      const dir = new THREE.Vector3().subVectors(camera.position, ctrl.target);
+      if (a === "zoom-in") {
+        dir.multiplyScalar(0.85);
+        camera.position.copy(ctrl.target).add(dir);
+        ctrl.update();
+      } else if (a === "zoom-out") {
+        dir.multiplyScalar(1.18);
+        camera.position.copy(ctrl.target).add(dir);
+        ctrl.update();
+      } else if (a === "rotate-right") {
+        rotating.current += Math.PI * 0.5;
+      } else if (a === "rotate-left") {
+        rotating.current -= Math.PI * 0.5;
+      } else if (a === "pan-toggle") {
+        setPanEnabled((v) => !v);
+      } else if (a === "reset") {
+        camera.position.set(0, 0.4, 3.2);
+        ctrl.target.set(0, 0.3, 0);
+        ctrl.update();
+      }
+    });
+  }, [camera]);
+
+  useFrame((_, delta) => {
+    const ctrl = ref.current;
+    if (!ctrl || rotating.current === 0) return;
+    const step = Math.sign(rotating.current) * Math.min(Math.abs(rotating.current), delta * 2.5);
+    const t = ctrl.target;
+    const off = new THREE.Vector3().subVectors(camera.position, t);
+    off.applyAxisAngle(new THREE.Vector3(0, 1, 0), step);
+    camera.position.copy(t).add(off);
+    ctrl.update();
+    rotating.current -= step;
+    if (Math.abs(rotating.current) < 1e-3) rotating.current = 0;
+  });
+
+  return <OrbitControls ref={ref} enablePan={panEnabled} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />;
+}
+
+
 function BodySilhouette({ opacity = 0.18 }: { opacity?: number }) {
   return (
     <group>
