@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
 import { DRACOLoader, KTX2Loader } from "three-stdlib";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
@@ -9,6 +9,7 @@ import { fetchGLBWithCache, prefetchGLB, type FetchProgress } from "@/lib/glb-ca
 import { initDiagnostics, recordFps } from "@/lib/glb-diagnostics";
 import { getLodSettings, subscribeLod } from "@/lib/lod-settings";
 import { getRetryPolicy, subscribeRetry } from "@/lib/glb-retry-policy";
+import { subscribeViewport } from "@/lib/viewport-bus";
 import { AlertCircle, RefreshCw, Wifi, WifiOff, Repeat } from "lucide-react";
 
 type OrganKey = "appendix" | "heart" | "bone" | "brain" | "lung";
