@@ -435,15 +435,32 @@ function SimulationPage() {
 
             {/* Right column */}
             <div className="col-span-12 lg:col-span-3 order-3 space-y-3">
-              <StepsPanel steps={selected.steps} currentStep={stepIdx} />
-              <ToolsPanel activeTool={activeTool} onChange={setActiveTool} />
+              <StepsPanel
+                steps={selected.steps}
+                currentStep={stepIdx}
+                onSelect={(i) => {
+                  if (i < stepIdx) {
+                    setStepIdx(i);
+                    setChecked({});
+                    setAiTip("");
+                    if (soundOn) speak(`Retour à l'étape ${i + 1}.`);
+                  }
+                }}
+              />
+              <ToolsPanel
+                activeTool={activeTool}
+                onChange={(id) => {
+                  setActiveTool(id);
+                  toast.success(`Outil : ${id}`);
+                }}
+              />
 
               <div className="rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur p-4 space-y-2">
                 <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold">Description</p>
                 <p className="text-[13px] text-slate-200 leading-relaxed">{step.description}</p>
               </div>
 
-              <LaparoscopicView />
+              <LaparoscopicView stepIndex={stepIdx} label={step.title} />
             </div>
           </div>
 
