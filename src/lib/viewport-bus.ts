@@ -16,5 +16,7 @@ export function emitViewport(a: ViewportAction) {
 }
 export function subscribeViewport(h: Handler) {
   handlers.add(h);
-  return () => handlers.delete(h);
+  return () => {
+    handlers.delete(h);
+  };
 }
