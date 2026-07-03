@@ -303,7 +303,7 @@ function ControlledOrbit() {
   const rotating = useRef(0);
 
   useEffect(() => {
-    return subscribeViewport((a) => {
+    const unsub = subscribeViewport((a) => {
       const ctrl = ref.current;
       if (!ctrl) return;
       const dir = new THREE.Vector3().subVectors(camera.position, ctrl.target);
