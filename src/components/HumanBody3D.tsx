@@ -426,7 +426,7 @@ export function HumanBody3D({
               )}
             </>
           )}
-          <OrbitControls enablePan={false} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />
+          <ControlledOrbit />
         </Suspense>
       </Canvas>
       <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />
