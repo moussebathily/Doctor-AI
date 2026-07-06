@@ -487,6 +487,7 @@ function SimulationPage() {
               </div>
 
               <LaparoscopicView stepIndex={stepIdx} label={step.title} />
+              <LiveChartsPanel hr={patient.vitals?.bpm ?? 72} alert={!!step.risks && stepIdx >= 2} />
             </div>
           </div>
 
