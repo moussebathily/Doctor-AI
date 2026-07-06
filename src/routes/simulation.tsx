@@ -447,6 +447,13 @@ function SimulationPage() {
                     onPickPart={setPickedOrgan}
                     height="h-[520px] md:h-[640px]"
                   />
+                  <RealtimeOverlay
+                    stepIndex={stepIdx}
+                    stepTitle={step.title}
+                    totalSteps={selected.steps.length}
+                    activeTool={activeTool}
+                    hr={patient.vitals?.hr ?? 72}
+                  />
                 </div>
               </div>
             </div>
