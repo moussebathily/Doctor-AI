@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Activity, Gauge, Wrench, Zap } from "lucide-react";
-import { subscribeFps, getFps } from "@/lib/glb-diagnostics";
-import { useSyncExternalStore } from "react";
+import { subscribe as subscribeDiag, getDiagnostics } from "@/lib/glb-diagnostics";
 
 /**
  * Live telemetry ribbon rendered on top of the 3D viewport.
