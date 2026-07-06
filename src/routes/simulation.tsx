@@ -48,6 +48,7 @@ import { ToolsPanel } from "@/components/simulation/ToolsPanel";
 import { LaparoscopicView } from "@/components/simulation/LaparoscopicView";
 import { OrganInfoPanel } from "@/components/simulation/OrganInfoPanel";
 import { ViewportControls } from "@/components/simulation/ViewportControls";
+import { RealtimeOverlay } from "@/components/simulation/RealtimeOverlay";
 
 export const Route = createFileRoute("/simulation")({
   validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
@@ -445,6 +446,13 @@ function SimulationPage() {
                     view={viewMode}
                     onPickPart={setPickedOrgan}
                     height="h-[520px] md:h-[640px]"
+                  />
+                  <RealtimeOverlay
+                    stepIndex={stepIdx}
+                    stepTitle={step.title}
+                    totalSteps={selected.steps.length}
+                    activeTool={activeTool}
+                    hr={patient.vitals?.bpm ?? 72}
                   />
                 </div>
               </div>
