@@ -48,6 +48,7 @@ import { ToolsPanel } from "@/components/simulation/ToolsPanel";
 import { LaparoscopicView } from "@/components/simulation/LaparoscopicView";
 import { OrganInfoPanel } from "@/components/simulation/OrganInfoPanel";
 import { ViewportControls } from "@/components/simulation/ViewportControls";
+import { RealtimeOverlay } from "@/components/simulation/RealtimeOverlay";
 
 export const Route = createFileRoute("/simulation")({
   validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
