@@ -22,7 +22,8 @@ export function RealtimeOverlay({
   activeTool: string;
   hr?: number;
 }) {
-  const fps = useSyncExternalStore(subscribeFps, getFps, getFps);
+  const diag = useSyncExternalStore(subscribeDiag, getDiagnostics, getDiagnostics);
+  const fps = diag.fps;
   const [beat, setBeat] = useState(false);
   useEffect(() => {
     const interval = 60000 / Math.max(30, hr);
