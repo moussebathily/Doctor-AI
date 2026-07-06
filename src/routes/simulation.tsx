@@ -452,7 +452,7 @@ function SimulationPage() {
                     stepTitle={step.title}
                     totalSteps={selected.steps.length}
                     activeTool={activeTool}
-                    hr={patient.vitals?.hr ?? 72}
+                    hr={patient.vitals?.bpm ?? 72}
                   />
                 </div>
               </div>
