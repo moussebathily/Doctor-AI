@@ -50,6 +50,7 @@ import { OrganInfoPanel } from "@/components/simulation/OrganInfoPanel";
 import { ViewportControls } from "@/components/simulation/ViewportControls";
 import { RealtimeOverlay } from "@/components/simulation/RealtimeOverlay";
 import { LiveChartsPanel } from "@/components/simulation/LiveChartsPanel";
+import { TimelinePanel } from "@/components/simulation/TimelinePanel";
 
 export const Route = createFileRoute("/simulation")({
   validateSearch: (s: Record<string, unknown>) => ({ op: typeof s.op === "string" ? s.op : undefined }),
@@ -488,6 +489,7 @@ function SimulationPage() {
 
               <LaparoscopicView stepIndex={stepIdx} label={step.title} />
               <LiveChartsPanel hr={patient.vitals?.bpm ?? 72} alert={!!step.risks && stepIdx >= 2} />
+              <TimelinePanel hr={patient.vitals?.bpm ?? 72} alert={!!step.risks && stepIdx >= 2} />
             </div>
           </div>
 
