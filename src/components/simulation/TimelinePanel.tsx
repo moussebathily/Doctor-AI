@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ZoomIn, ZoomOut, Play, Pause, RotateCcw, Settings2 } from "lucide-react";
+import { Activity, ZoomIn, ZoomOut, Play, Pause, RotateCcw, Settings2, Flag, Plus, X, AlertTriangle, Stethoscope, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type SeriesKey = "hr" | "spo2" | "bp" | "glu" | "urine" | "creat";
@@ -27,23 +28,38 @@ const SERIES: SeriesDef[] = [
 
 type Point = { t: number; v: Record<SeriesKey, number> };
 
+type AnnotationKind = "event" | "symptom" | "step";
+type Annotation = { id: string; t: number; label: string; kind: AnnotationKind };
+
+const KIND_META: Record<AnnotationKind, { color: string; label: string; Icon: typeof Flag }> = {
+  event:   { color: "#f59e0b", label: "Événement", Icon: Flag },
+  symptom: { color: "#f43f5e", label: "Symptôme",  Icon: AlertTriangle },
+  step:    { color: "#38bdf8", label: "Étape",     Icon: ListChecks },
+};
+
 const MAX_HISTORY = 3600; // ~1h at 1Hz
 
 export function TimelinePanel({
   hr = 72,
   alert = false,
+  currentStepTitle,
 }: {
   hr?: number;
   alert?: boolean;
+  currentStepTitle?: string;
 }) {
   const [intervalMs, setIntervalMs] = useState(1000);
   const [paused, setPaused] = useState(false);
   const [visible, setVisible] = useState<Record<SeriesKey, boolean>>({
     hr: true, spo2: true, bp: true, glu: false, urine: false, creat: false,
   });
-  const [zoom, setZoom] = useState(1); // 1 = show all, higher = tighter window
-  const [cursor, setCursor] = useState<number | null>(null); // index into history
+  const [zoom, setZoom] = useState(1);
+  const [cursor, setCursor] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [annoDraft, setAnnoDraft] = useState("");
+  const [annoKind, setAnnoKind] = useState<AnnotationKind>("event");
 
   const historyRef = useRef<Point[]>([]);
   const startRef = useRef<number>(Date.now());
@@ -75,7 +91,6 @@ export function TimelinePanel({
   const history = historyRef.current;
   const total = history.length;
 
-  // windowed slice based on zoom
   const windowSize = Math.max(20, Math.floor(total / zoom));
   const startIdx = Math.max(0, total - windowSize);
   const slice = history.slice(startIdx);
@@ -101,6 +116,20 @@ export function TimelinePanel({
     });
   }, [slice, visibleSeries, stepX]);
 
+  // Map annotation time to x within current window
+  const tMin = slice[0]?.t ?? 0;
+  const tMax = slice[slice.length - 1]?.t ?? 0;
+  const tSpan = Math.max(1, tMax - tMin);
+  const annoInWindow = annotations
+    .map((a) => ({ a, x: ((a.t - tMin) / tSpan) * W }))
+    .filter(({ a }) => a.t >= tMin && a.t <= tMax);
+
+  // Annotation near cursor
+  const cursorT = cursorPoint?.t ?? 0;
+  const nearAnno = annotations
+    .filter((a) => Math.abs(a.t - cursorT) <= Math.max(intervalMs, tSpan / Math.max(20, slice.length)) * 1.5)
+    .sort((a, b) => Math.abs(a.t - cursorT) - Math.abs(b.t - cursorT));
+
   const fmtClock = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -111,7 +140,36 @@ export function TimelinePanel({
     historyRef.current = [];
     startRef.current = Date.now();
     setCursor(null);
+    setAnnotations([]);
     setTick((n) => n + 1);
+  };
+
+  const addAnnotation = (label?: string, kind?: AnnotationKind) => {
+    const text = (label ?? annoDraft).trim();
+    if (!text) return;
+    const t = cursor !== null ? (slice[cursorIdx]?.t ?? Date.now() - startRef.current) : (Date.now() - startRef.current);
+    const a: Annotation = {
+      id: `${t}-${Math.random().toString(36).slice(2, 7)}`,
+      t,
+      label: text,
+      kind: kind ?? annoKind,
+    };
+    setAnnotations((xs) => [...xs, a].sort((x, y) => x.t - y.t));
+    setAnnoDraft("");
+  };
+
+  const removeAnnotation = (id: string) =>
+    setAnnotations((xs) => xs.filter((a) => a.id !== id));
+
+  const jumpToAnnotation = (a: Annotation) => {
+    // find nearest index in slice
+    let best = 0;
+    let bestDist = Infinity;
+    slice.forEach((p, i) => {
+      const d = Math.abs(p.t - a.t);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    setCursor(best);
   };
 
   return (
@@ -133,13 +191,22 @@ export function TimelinePanel({
       {/* Chart */}
       <div className="relative rounded-lg bg-black/30 border border-white/5 p-2">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-32" preserveAspectRatio="none">
-          {/* grid */}
           {[0.25, 0.5, 0.75].map((f) => (
             <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
           ))}
           {paths.map(({ s, pts }) => (
             <polyline key={s.key} points={pts} fill="none" stroke={s.color} strokeWidth={1.4} strokeLinejoin="round" />
           ))}
+          {/* Annotation markers */}
+          {annoInWindow.map(({ a, x }) => {
+            const c = KIND_META[a.kind].color;
+            return (
+              <g key={a.id}>
+                <line x1={x} x2={x} y1={6} y2={H} stroke={c} strokeWidth={1} strokeDasharray="3 2" opacity={0.7} />
+                <circle cx={x} cy={6} r={3} fill={c} />
+              </g>
+            );
+          })}
           {cursorPoint && (
             <line
               x1={cursorIdx * stepX} x2={cursorIdx * stepX}
@@ -186,6 +253,24 @@ export function TimelinePanel({
             ))}
           </div>
         )}
+        {nearAnno.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {nearAnno.map((a) => {
+              const { color, Icon, label } = KIND_META[a.kind];
+              return (
+                <span
+                  key={a.id}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] border"
+                  style={{ borderColor: `${color}55`, background: `${color}15`, color }}
+                >
+                  <Icon className="w-2.5 h-2.5" />
+                  <span className="font-semibold">{label}</span>
+                  <span className="text-white/90">· {a.label}</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Controls */}
@@ -203,6 +288,95 @@ export function TimelinePanel({
           <RotateCcw className="w-3 h-3" />
         </Button>
         <span className="ml-auto text-[9px] text-slate-500 font-mono">×{zoom.toFixed(1)}</span>
+      </div>
+
+      {/* Annotations */}
+      <div className="space-y-2 pt-2 border-t border-white/5">
+        <div className="flex items-center justify-between">
+          <p className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold flex items-center gap-1">
+            <Flag className="w-3 h-3" /> Annotations
+          </p>
+          <span className="text-[9px] text-slate-500">
+            {cursor !== null ? `@ ${fmtClock(cursorPoint?.t ?? 0)}` : "@ live"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {(Object.keys(KIND_META) as AnnotationKind[]).map((k) => {
+            const { color, Icon, label } = KIND_META[k];
+            const active = annoKind === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setAnnoKind(k)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] border transition-colors",
+                  active ? "text-white" : "text-slate-400 hover:text-slate-200",
+                )}
+                style={active ? { borderColor: color, background: `${color}22` } : { borderColor: "rgba(255,255,255,0.08)" }}
+              >
+                <Icon className="w-3 h-3" style={{ color }} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Input
+            value={annoDraft}
+            onChange={(e) => setAnnoDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addAnnotation(); }}
+            placeholder="Décrire l'événement, le symptôme…"
+            className="h-7 text-[11px] bg-black/30 border-white/10"
+          />
+          <Button size="sm" className="h-7 px-2" onClick={() => addAnnotation()} disabled={!annoDraft.trim()}>
+            <Plus className="w-3 h-3" />
+          </Button>
+          {currentStepTitle && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[10px]"
+              onClick={() => addAnnotation(currentStepTitle, "step")}
+              title="Marquer l'étape courante"
+            >
+              <Stethoscope className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
+
+        {annotations.length > 0 && (
+          <ul className="max-h-28 overflow-y-auto space-y-1 pr-1">
+            {annotations.map((a) => {
+              const { color, Icon, label } = KIND_META[a.kind];
+              return (
+                <li
+                  key={a.id}
+                  className="flex items-center gap-1.5 rounded bg-white/[0.03] border border-white/5 px-1.5 py-1 text-[10px]"
+                >
+                  <Icon className="w-3 h-3 shrink-0" style={{ color }} />
+                  <button
+                    onClick={() => jumpToAnnotation(a)}
+                    className="font-mono text-slate-400 hover:text-white shrink-0"
+                    title="Aller à ce point"
+                  >
+                    {fmtClock(a.t)}
+                  </button>
+                  <span className="text-slate-500 shrink-0">· {label}</span>
+                  <span className="flex-1 truncate text-slate-200">{a.label}</span>
+                  <button
+                    onClick={() => removeAnnotation(a.id)}
+                    className="text-slate-500 hover:text-rose-400 shrink-0"
+                    title="Supprimer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Series toggles + interval */}
