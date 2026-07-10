@@ -29,7 +29,7 @@ const SERIES: SeriesDef[] = [
 type Point = { t: number; v: Record<SeriesKey, number> };
 
 type AnnotationKind = "event" | "symptom" | "step";
-type Annotation = { id: string; t: number; label: string; kind: AnnotationKind };
+type Annotation = { id: string; t: number; label: string; kind: AnnotationKind; stepIndex?: number };
 
 const KIND_META: Record<AnnotationKind, { color: string; label: string; Icon: typeof Flag }> = {
   event:   { color: "#f59e0b", label: "Événement", Icon: Flag },
@@ -43,10 +43,16 @@ export function TimelinePanel({
   hr = 72,
   alert = false,
   currentStepTitle,
+  stepIdx,
+  stepTitles,
+  onSelectStep,
 }: {
   hr?: number;
   alert?: boolean;
   currentStepTitle?: string;
+  stepIdx?: number;
+  stepTitles?: string[];
+  onSelectStep?: (index: number) => void;
 }) {
   const [intervalMs, setIntervalMs] = useState(1000);
   const [paused, setPaused] = useState(false);
