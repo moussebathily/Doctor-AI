@@ -167,24 +167,54 @@ export function TimelinePanel({
   const removeAnnotation = (id: string) =>
     setAnnotations((xs) => xs.filter((a) => a.id !== id));
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const startEdit = (a: Annotation) => { setEditingId(a.id); setEditDraft(a.label); };
+  const commitEdit = () => {
+    const text = editDraft.trim();
+    if (!editingId || !text) { setEditingId(null); return; }
+    setAnnotations((xs) => xs.map((a) => (a.id === editingId ? { ...a, label: text } : a)));
+    setEditingId(null);
+  };
+
   // Auto-mark the current pipeline step as a step-annotation whenever it changes.
+  // Debounced + deduped: rapid step changes only produce one entry per step index,
+  // and we never add a duplicate within 800ms.
   const lastStepRef = useRef<number | null>(null);
+  const lastStepAtRef = useRef<number>(0);
   useEffect(() => {
     if (typeof stepIdx !== "number" || !stepTitles || !stepTitles[stepIdx]) return;
     if (lastStepRef.current === stepIdx) return;
+    const now = Date.now();
+    if (now - lastStepAtRef.current < 800) {
+      lastStepRef.current = stepIdx;
+      // just refresh the label of any existing annotation for this step index
+      setAnnotations((xs) =>
+        xs.map((x) =>
+          x.stepIndex === stepIdx ? { ...x, label: `${stepIdx + 1}. ${stepTitles[stepIdx]}` } : x,
+        ),
+      );
+      return;
+    }
     lastStepRef.current = stepIdx;
-    const t = Date.now() - startRef.current;
-    const a: Annotation = {
-      id: `step-${stepIdx}-${t}`,
-      t,
-      label: `${stepIdx + 1}. ${stepTitles[stepIdx]}`,
-      kind: "step",
-      stepIndex: stepIdx,
-    };
+    lastStepAtRef.current = now;
+    const t = now - startRef.current;
     setAnnotations((xs) => {
-      // avoid duplicates for the same step index
-      const filtered = xs.filter((x) => x.stepIndex !== stepIdx);
-      return [...filtered, a].sort((x, y) => x.t - y.t);
+      // if a step annotation for this index already exists, keep it (update label + time)
+      const existing = xs.find((x) => x.stepIndex === stepIdx);
+      if (existing) {
+        return xs.map((x) =>
+          x.stepIndex === stepIdx ? { ...x, label: `${stepIdx + 1}. ${stepTitles[stepIdx]}` } : x,
+        );
+      }
+      const a: Annotation = {
+        id: `step-${stepIdx}-${t}`,
+        t,
+        label: `${stepIdx + 1}. ${stepTitles[stepIdx]}`,
+        kind: "step",
+        stepIndex: stepIdx,
+      };
+      return [...xs, a].sort((x, y) => x.t - y.t);
     });
   }, [stepIdx, stepTitles]);
 
