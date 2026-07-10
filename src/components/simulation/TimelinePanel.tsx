@@ -440,7 +440,44 @@ export function TimelinePanel({
                     {fmtClock(a.t)}
                   </button>
                   <span className="text-slate-500 shrink-0">· {label}</span>
-                  <span className="flex-1 truncate text-slate-200">{a.label}</span>
+                  {editingId === a.id ? (
+                    <Input
+                      autoFocus
+                      value={editDraft}
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitEdit();
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      onBlur={commitEdit}
+                      className="h-6 flex-1 text-[10px] bg-black/40 border-white/10 px-1.5 py-0"
+                    />
+                  ) : (
+                    <span
+                      className="flex-1 truncate text-slate-200 cursor-text"
+                      onDoubleClick={() => startEdit(a)}
+                      title="Double-cliquer pour modifier"
+                    >
+                      {a.label}
+                    </span>
+                  )}
+                  {editingId === a.id ? (
+                    <button
+                      onClick={commitEdit}
+                      className="text-emerald-400 hover:text-emerald-300 shrink-0"
+                      title="Valider"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => startEdit(a)}
+                      className="text-slate-500 hover:text-sky-300 shrink-0"
+                      title="Modifier"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
                   <button
                     onClick={() => removeAnnotation(a.id)}
                     className="text-slate-500 hover:text-rose-400 shrink-0"
