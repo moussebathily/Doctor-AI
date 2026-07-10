@@ -167,6 +167,46 @@ export function TimelinePanel({
   const removeAnnotation = (id: string) =>
     setAnnotations((xs) => xs.filter((a) => a.id !== id));
 
+  // Auto-mark the current pipeline step as a step-annotation whenever it changes.
+  const lastStepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (typeof stepIdx !== "number" || !stepTitles || !stepTitles[stepIdx]) return;
+    if (lastStepRef.current === stepIdx) return;
+    lastStepRef.current = stepIdx;
+    const t = Date.now() - startRef.current;
+    const a: Annotation = {
+      id: `step-${stepIdx}-${t}`,
+      t,
+      label: `${stepIdx + 1}. ${stepTitles[stepIdx]}`,
+      kind: "step",
+      stepIndex: stepIdx,
+    };
+    setAnnotations((xs) => {
+      // avoid duplicates for the same step index
+      const filtered = xs.filter((x) => x.stepIndex !== stepIdx);
+      return [...filtered, a].sort((x, y) => x.t - y.t);
+    });
+  }, [stepIdx, stepTitles]);
+
+  // Scrubbing the timeline drives the active step in the parent simulation.
+  useEffect(() => {
+    if (cursor === null || !onSelectStep) return;
+    const stepAnnos = annotations.filter((a) => a.kind === "step" && typeof a.stepIndex === "number");
+    if (stepAnnos.length === 0) return;
+    // pick the latest step annotation whose time <= current cursor time
+    const cT = slice[cursorIdx]?.t ?? 0;
+    let target: Annotation | null = null;
+    for (const a of stepAnnos) {
+      if (a.t <= cT) target = a;
+      else break;
+    }
+    if (target && typeof target.stepIndex === "number" && target.stepIndex !== stepIdx) {
+      onSelectStep(target.stepIndex);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor, cursorIdx]);
+
+
   const jumpToAnnotation = (a: Annotation) => {
     // find nearest index in slice
     let best = 0;
