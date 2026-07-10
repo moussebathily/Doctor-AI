@@ -489,7 +489,19 @@ function SimulationPage() {
 
               <LaparoscopicView stepIndex={stepIdx} label={step.title} />
               <LiveChartsPanel hr={patient.vitals?.bpm ?? 72} alert={!!step.risks && stepIdx >= 2} />
-              <TimelinePanel hr={patient.vitals?.bpm ?? 72} alert={!!step.risks && stepIdx >= 2} />
+              <TimelinePanel
+                hr={patient.vitals?.bpm ?? 72}
+                alert={!!step.risks && stepIdx >= 2}
+                stepIdx={stepIdx}
+                stepTitles={selected.steps.map((s) => s.title)}
+                onSelectStep={(i) => {
+                  if (i === stepIdx) return;
+                  setStepIdx(i);
+                  setAiTip("");
+                  setChecked({});
+                  if (soundOn && selected.steps[i]) speak(`Étape ${i + 1}. ${selected.steps[i].title}.`);
+                }}
+              />
             </div>
           </div>
 
