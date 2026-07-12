@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ZoomIn, ZoomOut, Play, Pause, RotateCcw, Settings2, Flag, Plus, X, AlertTriangle, Stethoscope, ListChecks, Pencil, Check } from "lucide-react";
+import { Activity, ZoomIn, ZoomOut, Play, Pause, RotateCcw, Settings2, Flag, Plus, X, AlertTriangle, Stethoscope, ListChecks, Pencil, Check, Upload, FileJson, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -248,6 +248,148 @@ export function TimelinePanel({
     setCursor(best);
   };
 
+  // ---- Import annotations (JSON / CSV), aligned to current cursor ----
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  const parseCsv = (text: string): Annotation[] => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return [];
+    const header = lines[0].toLowerCase().split(/[,;\t]/).map((s) => s.trim());
+    const hasHeader = header.some((h) => ["t", "time", "label", "kind"].includes(h));
+    const idxT = hasHeader ? header.findIndex((h) => h === "t" || h === "time") : 0;
+    const idxLabel = hasHeader ? header.findIndex((h) => h === "label") : 1;
+    const idxKind = hasHeader ? header.findIndex((h) => h === "kind") : 2;
+    const rows = hasHeader ? lines.slice(1) : lines;
+    const out: Annotation[] = [];
+    rows.forEach((line, i) => {
+      const cols = line.split(/[,;\t]/).map((s) => s.trim().replace(/^"|"$/g, ""));
+      const rawT = cols[idxT] ?? String(i);
+      // accept ms number or "mm:ss"
+      let t: number;
+      if (/^\d+:\d+$/.test(rawT)) {
+        const [m, s] = rawT.split(":").map(Number);
+        t = (m * 60 + s) * 1000;
+      } else {
+        t = Number(rawT);
+      }
+      if (!Number.isFinite(t)) return;
+      const label = cols[idxLabel] ?? "";
+      const kindRaw = (cols[idxKind] ?? "event").toLowerCase();
+      const kind: AnnotationKind = kindRaw === "symptom" || kindRaw === "symptôme"
+        ? "symptom"
+        : kindRaw === "step" || kindRaw === "étape"
+        ? "step"
+        : "event";
+      if (!label) return;
+      out.push({ id: `imp-${t}-${Math.random().toString(36).slice(2, 6)}`, t, label, kind });
+    });
+    return out;
+  };
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      let parsed: Annotation[] = [];
+      if (file.name.toLowerCase().endsWith(".json")) {
+        const data = JSON.parse(text);
+        const arr = Array.isArray(data) ? data : Array.isArray(data?.annotations) ? data.annotations : [];
+        parsed = arr
+          .map((r: any, i: number): Annotation | null => {
+            const t = Number(r.t ?? r.time);
+            if (!Number.isFinite(t) || !r.label) return null;
+            const k = String(r.kind ?? "event").toLowerCase();
+            const kind: AnnotationKind = k === "symptom" ? "symptom" : k === "step" ? "step" : "event";
+            return { id: `imp-${t}-${i}-${Math.random().toString(36).slice(2, 5)}`, t, label: String(r.label), kind };
+          })
+          .filter((x: Annotation | null): x is Annotation => x !== null);
+      } else {
+        parsed = parseCsv(text);
+      }
+      if (parsed.length === 0) {
+        setImportMsg("Aucune annotation valide trouvée.");
+        return;
+      }
+      // Align: shift so the earliest imported timestamp lands on the current cursor
+      const cursorT = cursorPoint?.t ?? (Date.now() - startRef.current);
+      const minT = Math.min(...parsed.map((a) => a.t));
+      const delta = cursorT - minT;
+      const aligned = parsed.map((a) => ({ ...a, t: Math.max(0, a.t + delta) }));
+      setAnnotations((xs) => [...xs, ...aligned].sort((x, y) => x.t - y.t));
+      setImportMsg(`${aligned.length} annotation(s) importée(s), alignée(s) sur le curseur.`);
+      setTimeout(() => setImportMsg(null), 3000);
+    } catch (e) {
+      setImportMsg("Erreur d'import : fichier invalide.");
+      setTimeout(() => setImportMsg(null), 3000);
+    }
+  };
+
+  // ---- Export history + annotations ----
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportJSON = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      startedAt: new Date(startRef.current).toISOString(),
+      series: SERIES.map((s) => ({ key: s.key, label: s.label, unit: s.unit })),
+      history: historyRef.current,
+      annotations,
+    };
+    downloadBlob(
+      new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
+      `timeline-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`,
+    );
+  };
+
+  const exportPDF = () => {
+    const rowsAnno = annotations.map((a) => `
+      <tr>
+        <td style="font-family:monospace">${fmtClock(a.t)}</td>
+        <td>${KIND_META[a.kind].label}</td>
+        <td>${a.label.replace(/</g, "&lt;")}</td>
+      </tr>`).join("");
+    const last = historyRef.current[historyRef.current.length - 1];
+    const rowsSeries = SERIES.map((s) => `
+      <tr>
+        <td><span style="display:inline-block;width:10px;height:10px;background:${s.color};border-radius:50%"></span> ${s.label}</td>
+        <td>${last ? last.v[s.key].toFixed(2) : "—"} ${s.unit}</td>
+      </tr>`).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Timeline simulation</title>
+      <style>
+        body{font-family:-apple-system,Segoe UI,sans-serif;padding:24px;color:#111}
+        h1{font-size:20px;margin:0 0 4px}
+        .muted{color:#666;font-size:12px;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}
+        th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}
+        th{background:#f4f4f5}
+        h2{font-size:14px;margin:16px 0 8px}
+      </style></head><body>
+      <h1>Rapport de simulation — Timeline</h1>
+      <div class="muted">Exporté le ${new Date().toLocaleString()} · Début : ${new Date(startRef.current).toLocaleString()} · ${historyRef.current.length} points</div>
+      <h2>Dernières valeurs</h2>
+      <table><thead><tr><th>Série</th><th>Valeur</th></tr></thead><tbody>${rowsSeries}</tbody></table>
+      <h2>Annotations (${annotations.length})</h2>
+      <table><thead><tr><th>Temps</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>${rowsAnno || '<tr><td colspan="3" style="text-align:center;color:#888">Aucune annotation</td></tr>'}</tbody></table>
+      <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
+      </body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+  };
+
+
+
   return (
     <div className="rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -258,11 +400,37 @@ export function TimelinePanel({
           <span className="text-[9px] text-slate-400 font-mono">
             {total} pts · {fmtClock(history[total - 1]?.t ?? 0)}
           </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,.csv,application/json,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImportFile(f);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+          />
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => fileInputRef.current?.click()} title="Importer annotations (JSON/CSV)">
+            <Upload className="w-3 h-3" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={exportJSON} title="Exporter JSON">
+            <FileJson className="w-3 h-3" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={exportPDF} title="Exporter PDF (impression)">
+            <FileText className="w-3 h-3" />
+          </Button>
           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setShowSettings((v) => !v)} title="Réglages">
             <Settings2 className="w-3 h-3" />
           </Button>
         </div>
       </div>
+      {importMsg && (
+        <p className="text-[10px] text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded px-2 py-1">
+          {importMsg}
+        </p>
+      )}
+
 
       {/* Chart */}
       <div className="relative rounded-lg bg-black/30 border border-white/5 p-2">
