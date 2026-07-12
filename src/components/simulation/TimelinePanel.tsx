@@ -483,13 +483,23 @@ export function TimelinePanel({
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
           />
+          <select
+            value={alignMode}
+            onChange={(e) => setAlignMode(e.target.value as AlignMode)}
+            title="Stratégie d'alignement à l'import"
+            className="h-6 rounded bg-black/40 border border-white/10 text-[9px] text-slate-200 px-1 focus:outline-none"
+          >
+            <option value="relative">Aligner : temps relatif</option>
+            <option value="step">Aligner : par étape</option>
+            <option value="anchor">Aligner : ancrage absolu</option>
+          </select>
           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => fileInputRef.current?.click()} title="Importer annotations (JSON/CSV)">
             <Upload className="w-3 h-3" />
           </Button>
           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={exportJSON} title="Exporter JSON">
             <FileJson className="w-3 h-3" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={exportPDF} title="Exporter PDF (impression)">
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setPdfOpen(true)} title="Prévisualiser & exporter PDF">
             <FileText className="w-3 h-3" />
           </Button>
           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setShowSettings((v) => !v)} title="Réglages">
@@ -502,6 +512,90 @@ export function TimelinePanel({
           {importMsg}
         </p>
       )}
+
+      {pdfOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setPdfOpen(false)}
+        >
+          <div
+            className="w-full max-w-5xl h-[85vh] rounded-xl bg-slate-950 border border-white/10 flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5" /> Prévisualisation PDF
+              </p>
+              <button onClick={() => setPdfOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-[260px_1fr] flex-1 min-h-0">
+              <div className="border-r border-white/10 p-3 space-y-3 overflow-y-auto text-[11px]">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Titre</label>
+                  <Input
+                    value={pdfTitle}
+                    onChange={(e) => setPdfTitle(e.target.value)}
+                    className="h-7 text-[11px] bg-black/30 border-white/10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Ordre des annotations</label>
+                  <select
+                    value={pdfOrder}
+                    onChange={(e) => setPdfOrder(e.target.value as "asc" | "desc" | "kind")}
+                    className="w-full h-7 rounded bg-black/40 border border-white/10 text-[11px] text-slate-200 px-2 focus:outline-none"
+                  >
+                    <option value="asc">Chronologique</option>
+                    <option value="desc">Anti-chronologique</option>
+                    <option value="kind">Groupé par type</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Types inclus / légende</p>
+                  {(Object.keys(KIND_META) as AnnotationKind[]).map((k) => {
+                    const { color, label, Icon } = KIND_META[k];
+                    return (
+                      <label key={k} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-white/5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={pdfKinds[k]}
+                          onChange={(e) => setPdfKinds((v) => ({ ...v, [k]: e.target.checked }))}
+                          className="accent-sky-500"
+                        />
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+                        <Icon className="w-3 h-3" style={{ color }} />
+                        <span className="text-slate-200">{label}</span>
+                        <span className="ml-auto text-slate-500 font-mono">
+                          {annotations.filter((a) => a.kind === k).length}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="pt-2 border-t border-white/10 space-y-2">
+                  <Button className="w-full h-8" onClick={printPdf}>
+                    <FileText className="w-3.5 h-3.5 mr-1" /> Imprimer / Enregistrer en PDF
+                  </Button>
+                  <Button variant="outline" className="w-full h-8" onClick={() => setPdfOpen(false)}>
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+              <div className="bg-white overflow-hidden">
+                <iframe
+                  key={`${pdfTitle}|${pdfOrder}|${pdfKinds.event}|${pdfKinds.symptom}|${pdfKinds.step}`}
+                  title="Aperçu PDF"
+                  srcDoc={buildPdfHtml(false)}
+                  className="w-full h-full border-0"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
 
       {/* Chart */}
