@@ -400,11 +400,37 @@ export function TimelinePanel({
           <span className="text-[9px] text-slate-400 font-mono">
             {total} pts · {fmtClock(history[total - 1]?.t ?? 0)}
           </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,.csv,application/json,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImportFile(f);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+          />
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => fileInputRef.current?.click()} title="Importer annotations (JSON/CSV)">
+            <Upload className="w-3 h-3" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={exportJSON} title="Exporter JSON">
+            <FileJson className="w-3 h-3" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={exportPDF} title="Exporter PDF (impression)">
+            <FileText className="w-3 h-3" />
+          </Button>
           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setShowSettings((v) => !v)} title="Réglages">
             <Settings2 className="w-3 h-3" />
           </Button>
         </div>
       </div>
+      {importMsg && (
+        <p className="text-[10px] text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded px-2 py-1">
+          {importMsg}
+        </p>
+      )}
+
 
       {/* Chart */}
       <div className="relative rounded-lg bg-black/30 border border-white/5 p-2">
