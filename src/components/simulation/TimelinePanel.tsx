@@ -248,24 +248,28 @@ export function TimelinePanel({
     setCursor(best);
   };
 
-  // ---- Import annotations (JSON / CSV), aligned to current cursor ----
+  // ---- Import annotations (JSON / CSV), aligned via chosen strategy ----
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  type AlignMode = "relative" | "step" | "anchor";
+  const [alignMode, setAlignMode] = useState<AlignMode>("relative");
 
-  const parseCsv = (text: string): Annotation[] => {
+  type ParsedAnno = Annotation & { _srcStep?: number };
+
+  const parseCsv = (text: string): ParsedAnno[] => {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length === 0) return [];
     const header = lines[0].toLowerCase().split(/[,;\t]/).map((s) => s.trim());
-    const hasHeader = header.some((h) => ["t", "time", "label", "kind"].includes(h));
+    const hasHeader = header.some((h) => ["t", "time", "label", "kind", "step"].includes(h));
     const idxT = hasHeader ? header.findIndex((h) => h === "t" || h === "time") : 0;
     const idxLabel = hasHeader ? header.findIndex((h) => h === "label") : 1;
     const idxKind = hasHeader ? header.findIndex((h) => h === "kind") : 2;
+    const idxStep = hasHeader ? header.findIndex((h) => h === "step") : -1;
     const rows = hasHeader ? lines.slice(1) : lines;
-    const out: Annotation[] = [];
+    const out: ParsedAnno[] = [];
     rows.forEach((line, i) => {
       const cols = line.split(/[,;\t]/).map((s) => s.trim().replace(/^"|"$/g, ""));
       const rawT = cols[idxT] ?? String(i);
-      // accept ms number or "mm:ss"
       let t: number;
       if (/^\d+:\d+$/.test(rawT)) {
         const [m, s] = rawT.split(":").map(Number);
@@ -273,7 +277,7 @@ export function TimelinePanel({
       } else {
         t = Number(rawT);
       }
-      if (!Number.isFinite(t)) return;
+      if (!Number.isFinite(t)) t = 0;
       const label = cols[idxLabel] ?? "";
       const kindRaw = (cols[idxKind] ?? "event").toLowerCase();
       const kind: AnnotationKind = kindRaw === "symptom" || kindRaw === "symptôme"
@@ -281,44 +285,84 @@ export function TimelinePanel({
         : kindRaw === "step" || kindRaw === "étape"
         ? "step"
         : "event";
+      const stepRaw = idxStep >= 0 ? Number(cols[idxStep]) : NaN;
       if (!label) return;
-      out.push({ id: `imp-${t}-${Math.random().toString(36).slice(2, 6)}`, t, label, kind });
+      out.push({
+        id: `imp-${t}-${Math.random().toString(36).slice(2, 6)}`,
+        t, label, kind,
+        _srcStep: Number.isFinite(stepRaw) ? stepRaw : undefined,
+      });
     });
     return out;
+  };
+
+  const alignAnnotations = (parsed: ParsedAnno[]): Annotation[] => {
+    if (parsed.length === 0) return [];
+    const cursorT = cursorPoint?.t ?? (Date.now() - startRef.current);
+
+    if (alignMode === "anchor") {
+      // Anchor mode: keep original t as absolute (relative to sim start 0).
+      return parsed.map(({ _srcStep, ...a }) => a);
+    }
+
+    if (alignMode === "step") {
+      // Map by step index -> time of existing step annotation with that index
+      const stepAnnos = annotations.filter((a) => a.kind === "step" && typeof a.stepIndex === "number");
+      const stepTimeByIdx = new Map<number, number>();
+      stepAnnos.forEach((a) => stepTimeByIdx.set(a.stepIndex!, a.t));
+      return parsed.map(({ _srcStep, ...a }) => {
+        const idx = _srcStep;
+        if (typeof idx === "number" && stepTimeByIdx.has(idx)) {
+          return { ...a, t: stepTimeByIdx.get(idx)! };
+        }
+        // fall back to cursor for unmatched
+        return { ...a, t: cursorT };
+      });
+    }
+
+    // "relative": preserve intervals, shift so earliest lands on cursor
+    const minT = Math.min(...parsed.map((a) => a.t));
+    const delta = cursorT - minT;
+    return parsed.map(({ _srcStep, ...a }) => ({ ...a, t: Math.max(0, a.t + delta) }));
   };
 
   const handleImportFile = async (file: File) => {
     try {
       const text = await file.text();
-      let parsed: Annotation[] = [];
+      let parsed: ParsedAnno[] = [];
       if (file.name.toLowerCase().endsWith(".json")) {
         const data = JSON.parse(text);
         const arr = Array.isArray(data) ? data : Array.isArray(data?.annotations) ? data.annotations : [];
         parsed = arr
-          .map((r: any, i: number): Annotation | null => {
-            const t = Number(r.t ?? r.time);
-            if (!Number.isFinite(t) || !r.label) return null;
+          .map((r: any, i: number): ParsedAnno | null => {
+            const t = Number(r.t ?? r.time ?? 0);
+            if (!r.label) return null;
             const k = String(r.kind ?? "event").toLowerCase();
             const kind: AnnotationKind = k === "symptom" ? "symptom" : k === "step" ? "step" : "event";
-            return { id: `imp-${t}-${i}-${Math.random().toString(36).slice(2, 5)}`, t, label: String(r.label), kind };
+            const s = Number(r.stepIndex ?? r.step);
+            return {
+              id: `imp-${t}-${i}-${Math.random().toString(36).slice(2, 5)}`,
+              t: Number.isFinite(t) ? t : 0,
+              label: String(r.label),
+              kind,
+              _srcStep: Number.isFinite(s) ? s : undefined,
+            };
           })
-          .filter((x: Annotation | null): x is Annotation => x !== null);
+          .filter((x: ParsedAnno | null): x is ParsedAnno => x !== null);
       } else {
         parsed = parseCsv(text);
       }
       if (parsed.length === 0) {
         setImportMsg("Aucune annotation valide trouvée.");
+        setTimeout(() => setImportMsg(null), 3000);
         return;
       }
-      // Align: shift so the earliest imported timestamp lands on the current cursor
-      const cursorT = cursorPoint?.t ?? (Date.now() - startRef.current);
-      const minT = Math.min(...parsed.map((a) => a.t));
-      const delta = cursorT - minT;
-      const aligned = parsed.map((a) => ({ ...a, t: Math.max(0, a.t + delta) }));
+      const aligned = alignAnnotations(parsed);
       setAnnotations((xs) => [...xs, ...aligned].sort((x, y) => x.t - y.t));
-      setImportMsg(`${aligned.length} annotation(s) importée(s), alignée(s) sur le curseur.`);
-      setTimeout(() => setImportMsg(null), 3000);
-    } catch (e) {
+      const modeLabel = alignMode === "relative" ? "temps relatif" : alignMode === "step" ? "index d'étape" : "ancrage absolu";
+      setImportMsg(`${aligned.length} annotation(s) importée(s) · alignement : ${modeLabel}.`);
+      setTimeout(() => setImportMsg(null), 3500);
+    } catch {
       setImportMsg("Erreur d'import : fichier invalide.");
       setTimeout(() => setImportMsg(null), 3000);
     }
@@ -350,43 +394,71 @@ export function TimelinePanel({
     );
   };
 
-  const exportPDF = () => {
-    const rowsAnno = annotations.map((a) => `
+  // ---- PDF preview ----
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfTitle, setPdfTitle] = useState("Rapport de simulation — Timeline");
+  const [pdfOrder, setPdfOrder] = useState<"asc" | "desc" | "kind">("asc");
+  const [pdfKinds, setPdfKinds] = useState<Record<AnnotationKind, boolean>>({ event: true, symptom: true, step: true });
+
+  const buildPdfHtml = (autoprint: boolean): string => {
+    const filtered = annotations.filter((a) => pdfKinds[a.kind]);
+    const sorted = [...filtered].sort((a, b) => {
+      if (pdfOrder === "asc") return a.t - b.t;
+      if (pdfOrder === "desc") return b.t - a.t;
+      // kind grouping then time
+      const order: AnnotationKind[] = ["step", "event", "symptom"];
+      const d = order.indexOf(a.kind) - order.indexOf(b.kind);
+      return d !== 0 ? d : a.t - b.t;
+    });
+    const rowsAnno = sorted.map((a) => `
       <tr>
-        <td style="font-family:monospace">${fmtClock(a.t)}</td>
-        <td>${KIND_META[a.kind].label}</td>
+        <td style="font-family:monospace;white-space:nowrap">${fmtClock(a.t)}</td>
+        <td><span style="display:inline-block;width:8px;height:8px;background:${KIND_META[a.kind].color};border-radius:50%;margin-right:6px"></span>${KIND_META[a.kind].label}</td>
         <td>${a.label.replace(/</g, "&lt;")}</td>
       </tr>`).join("");
     const last = historyRef.current[historyRef.current.length - 1];
     const rowsSeries = SERIES.map((s) => `
       <tr>
-        <td><span style="display:inline-block;width:10px;height:10px;background:${s.color};border-radius:50%"></span> ${s.label}</td>
+        <td><span style="display:inline-block;width:10px;height:10px;background:${s.color};border-radius:50%;margin-right:6px"></span>${s.label}</td>
         <td>${last ? last.v[s.key].toFixed(2) : "—"} ${s.unit}</td>
       </tr>`).join("");
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Timeline simulation</title>
+    const legend = (Object.keys(KIND_META) as AnnotationKind[]).map((k) => `
+      <span style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:12px">
+        <span style="display:inline-block;width:10px;height:10px;background:${KIND_META[k].color};border-radius:50%"></span>
+        ${KIND_META[k].label}
+      </span>`).join("");
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${pdfTitle.replace(/</g, "&lt;")}</title>
       <style>
-        body{font-family:-apple-system,Segoe UI,sans-serif;padding:24px;color:#111}
+        body{font-family:-apple-system,Segoe UI,sans-serif;padding:24px;color:#111;margin:0}
         h1{font-size:20px;margin:0 0 4px}
-        .muted{color:#666;font-size:12px;margin-bottom:16px}
+        .muted{color:#666;font-size:12px;margin-bottom:12px}
+        .legend{margin:8px 0 16px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px}
         table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px}
-        th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}
+        th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}
         th{background:#f4f4f5}
         h2{font-size:14px;margin:16px 0 8px}
+        @media print{ @page{margin:16mm} }
       </style></head><body>
-      <h1>Rapport de simulation — Timeline</h1>
-      <div class="muted">Exporté le ${new Date().toLocaleString()} · Début : ${new Date(startRef.current).toLocaleString()} · ${historyRef.current.length} points</div>
+      <h1>${pdfTitle.replace(/</g, "&lt;")}</h1>
+      <div class="muted">Exporté le ${new Date().toLocaleString()} · Début : ${new Date(startRef.current).toLocaleString()} · ${historyRef.current.length} points · Tri : ${pdfOrder === "asc" ? "chronologique" : pdfOrder === "desc" ? "anti-chronologique" : "par type"}</div>
+      <div class="legend"><strong style="font-size:12px;margin-right:10px">Légende :</strong>${legend}</div>
       <h2>Dernières valeurs</h2>
       <table><thead><tr><th>Série</th><th>Valeur</th></tr></thead><tbody>${rowsSeries}</tbody></table>
-      <h2>Annotations (${annotations.length})</h2>
-      <table><thead><tr><th>Temps</th><th>Type</th><th>Description</th></tr></thead>
+      <h2>Annotations (${sorted.length}${sorted.length !== annotations.length ? ` / ${annotations.length}` : ""})</h2>
+      <table><thead><tr><th style="width:70px">Temps</th><th style="width:110px">Type</th><th>Description</th></tr></thead>
       <tbody>${rowsAnno || '<tr><td colspan="3" style="text-align:center;color:#888">Aucune annotation</td></tr>'}</tbody></table>
-      <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
+      ${autoprint ? "<script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>" : ""}
       </body></html>`;
+  };
+
+  const printPdf = () => {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(html);
+    w.document.write(buildPdfHtml(true));
     w.document.close();
   };
+
+
 
 
 
