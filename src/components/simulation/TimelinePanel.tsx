@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ZoomIn, ZoomOut, Play, Pause, RotateCcw, Settings2, Flag, Plus, X, AlertTriangle, Stethoscope, ListChecks, Pencil, Check } from "lucide-react";
+import { Activity, ZoomIn, ZoomOut, Play, Pause, RotateCcw, Settings2, Flag, Plus, X, AlertTriangle, Stethoscope, ListChecks, Pencil, Check, Upload, Download, FileJson, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
