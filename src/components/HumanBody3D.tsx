@@ -292,7 +292,7 @@ function GLBModel({
   };
 
   return (
-    <Center position={[0, 0.15, 0]}>
+    <group>
       <group
         ref={ref}
         onPointerOver={(e) => {
