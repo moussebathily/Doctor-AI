@@ -189,22 +189,27 @@ function meshMatchesSystem(name: string, system: AnatomySystem): boolean {
 }
 
 function GLBModel({
-  url, system, view, lowQuality, breathing = true, onPick,
+  url, system, view, lowQuality, breathing = true, autoRotate = true, onPick,
 }: {
   url: string;
   system: AnatomySystem;
   view: AnatomyView;
   lowQuality: boolean;
   breathing?: boolean;
+  autoRotate?: boolean;
   onPick?: (name: string) => void;
 }) {
   const { scene } = useGLTF(url, true, true, extendLoader as never);
   const ref = useRef<THREE.Group>(null);
+  const hovered = useRef<THREE.Mesh | null>(null);
+  const hoverPrev = useRef<{ emissive: number; intensity: number } | null>(null);
 
   useEffect(() => {
     scene.traverse((obj) => {
       if (!(obj as THREE.Mesh).isMesh) return;
       const mesh = obj as THREE.Mesh;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       let composite = mesh.name;
       let p: THREE.Object3D | null = mesh.parent;
       while (p) { composite += " " + p.name; p = p.parent; }
@@ -214,14 +219,18 @@ function GLBModel({
       const mat = mesh.material as THREE.Material | THREE.Material[];
       const apply = (m: THREE.Material) => {
         m.transparent = true;
+        m.depthWrite = true;
         if (view === "transparent") m.opacity = inSystem ? 1 : 0.18;
         else if (view === "organs") m.opacity = inSystem ? 1 : 0.0;
         else if (view === "layers") m.opacity = inSystem ? 1 : 0.35;
         else m.opacity = inSystem || system === "full" ? 1 : 0.25;
-        // LOD: skip costly PBR sampling on first frames.
         const std = m as THREE.MeshStandardMaterial;
         if ("roughness" in std) {
           std.flatShading = lowQuality;
+          // Wet, sub-surface-like tissue response for a clinical look.
+          std.roughness = Math.min(1, Math.max(0.28, std.roughness ?? 0.6));
+          std.metalness = Math.min(std.metalness ?? 0, 0.08);
+          std.envMapIntensity = lowQuality ? 0.6 : 1.35;
         }
         m.needsUpdate = true;
       };
@@ -232,19 +241,47 @@ function GLBModel({
 
   useFrame((_, delta) => {
     if (!ref.current) return;
-    ref.current.rotation.y += delta * 0.15;
+    if (autoRotate) ref.current.rotation.y += delta * 0.12;
     if (breathing) {
-      const s = 1 + Math.sin(performance.now() / 900) * 0.02;
-      ref.current.scale.set(s, s, s);
+      const t = performance.now() / 1000;
+      // Asymmetric respiration curve: quick inspiration, slow expiration.
+      const cycle = (Math.sin(t * 1.15) + Math.sin(t * 2.3) * 0.25) * 0.012;
+      ref.current.scale.set(1 + cycle * 0.6, 1 + cycle, 1 + cycle * 0.9);
+      ref.current.position.y = cycle * 0.35;
     }
   });
+
+  const setHover = (mesh: THREE.Mesh | null) => {
+    const prev = hovered.current;
+    if (prev && hoverPrev.current) {
+      const m = prev.material as THREE.MeshStandardMaterial;
+      if (m && "emissive" in m) {
+        m.emissive.setHex(hoverPrev.current.emissive);
+        m.emissiveIntensity = hoverPrev.current.intensity;
+      }
+    }
+    hovered.current = mesh;
+    hoverPrev.current = null;
+    if (mesh) {
+      const m = mesh.material as THREE.MeshStandardMaterial;
+      if (m && "emissive" in m) {
+        hoverPrev.current = { emissive: m.emissive.getHex(), intensity: m.emissiveIntensity ?? 0 };
+        m.emissive.setHex(0x2ea8ff);
+        m.emissiveIntensity = 0.55;
+      }
+    }
+  };
 
   return (
     <Center>
       <group
         ref={ref}
-        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
-        onPointerOut={() => { document.body.style.cursor = "default"; }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+          if ((e.object as THREE.Mesh).isMesh) setHover(e.object as THREE.Mesh);
+        }}
+        onPointerOut={() => { document.body.style.cursor = "default"; setHover(null); }}
         onClick={(e) => {
           e.stopPropagation();
           const obj = e.object as THREE.Object3D;
