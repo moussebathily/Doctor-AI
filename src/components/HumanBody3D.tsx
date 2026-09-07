@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF, Center, ContactShadows, Grid } from "@react-three/drei";
 import { DRACOLoader, KTX2Loader } from "three-stdlib";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import * as THREE from "three";
