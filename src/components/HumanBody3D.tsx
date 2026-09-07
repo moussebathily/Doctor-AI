@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Html, Environment, useGLTF, Center } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF, Center, ContactShadows, Grid } from "@react-three/drei";
 import { DRACOLoader, KTX2Loader } from "three-stdlib";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import * as THREE from "three";
@@ -189,22 +189,46 @@ function meshMatchesSystem(name: string, system: AnatomySystem): boolean {
 }
 
 function GLBModel({
-  url, system, view, lowQuality, breathing = true, onPick,
+  url, system, view, lowQuality, breathing = true, autoRotate = true, onPick,
 }: {
   url: string;
   system: AnatomySystem;
   view: AnatomyView;
   lowQuality: boolean;
   breathing?: boolean;
+  autoRotate?: boolean;
   onPick?: (name: string) => void;
 }) {
   const { scene } = useGLTF(url, true, true, extendLoader as never);
   const ref = useRef<THREE.Group>(null);
+  const hovered = useRef<THREE.Mesh | null>(null);
+
+  // Normalize any GLB: uniform ~2.4 unit height, recentered on the origin.
+  useEffect(() => {
+    scene.position.set(0, 0, 0);
+    scene.scale.set(1, 1, 1);
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0 && Number.isFinite(maxDim)) {
+      const k = 2.4 / maxDim;
+      scene.scale.setScalar(k);
+      scene.position.set(-center.x * k, -center.y * k + 0.25, -center.z * k);
+      scene.updateMatrixWorld(true);
+    }
+  }, [scene]);
+  const hoverPrev = useRef<{ emissive: number; intensity: number } | null>(null);
 
   useEffect(() => {
     scene.traverse((obj) => {
       if (!(obj as THREE.Mesh).isMesh) return;
       const mesh = obj as THREE.Mesh;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       let composite = mesh.name;
       let p: THREE.Object3D | null = mesh.parent;
       while (p) { composite += " " + p.name; p = p.parent; }
@@ -214,14 +238,18 @@ function GLBModel({
       const mat = mesh.material as THREE.Material | THREE.Material[];
       const apply = (m: THREE.Material) => {
         m.transparent = true;
+        m.depthWrite = true;
         if (view === "transparent") m.opacity = inSystem ? 1 : 0.18;
         else if (view === "organs") m.opacity = inSystem ? 1 : 0.0;
         else if (view === "layers") m.opacity = inSystem ? 1 : 0.35;
         else m.opacity = inSystem || system === "full" ? 1 : 0.25;
-        // LOD: skip costly PBR sampling on first frames.
         const std = m as THREE.MeshStandardMaterial;
         if ("roughness" in std) {
           std.flatShading = lowQuality;
+          // Wet, sub-surface-like tissue response for a clinical look.
+          std.roughness = Math.min(1, Math.max(0.28, std.roughness ?? 0.6));
+          std.metalness = Math.min(std.metalness ?? 0, 0.08);
+          std.envMapIntensity = lowQuality ? 0.6 : 1.35;
         }
         m.needsUpdate = true;
       };
@@ -232,19 +260,47 @@ function GLBModel({
 
   useFrame((_, delta) => {
     if (!ref.current) return;
-    ref.current.rotation.y += delta * 0.15;
+    if (autoRotate) ref.current.rotation.y += delta * 0.12;
     if (breathing) {
-      const s = 1 + Math.sin(performance.now() / 900) * 0.02;
-      ref.current.scale.set(s, s, s);
+      const t = performance.now() / 1000;
+      // Asymmetric respiration curve: quick inspiration, slow expiration.
+      const cycle = (Math.sin(t * 1.15) + Math.sin(t * 2.3) * 0.25) * 0.012;
+      ref.current.scale.set(1 + cycle * 0.6, 1 + cycle, 1 + cycle * 0.9);
+      ref.current.position.y = cycle * 0.35;
     }
   });
 
+  const setHover = (mesh: THREE.Mesh | null) => {
+    const prev = hovered.current;
+    if (prev && hoverPrev.current) {
+      const m = prev.material as THREE.MeshStandardMaterial;
+      if (m && "emissive" in m) {
+        m.emissive.setHex(hoverPrev.current.emissive);
+        m.emissiveIntensity = hoverPrev.current.intensity;
+      }
+    }
+    hovered.current = mesh;
+    hoverPrev.current = null;
+    if (mesh) {
+      const m = mesh.material as THREE.MeshStandardMaterial;
+      if (m && "emissive" in m) {
+        hoverPrev.current = { emissive: m.emissive.getHex(), intensity: m.emissiveIntensity ?? 0 };
+        m.emissive.setHex(0x2ea8ff);
+        m.emissiveIntensity = 0.55;
+      }
+    }
+  };
+
   return (
-    <Center>
+    <group>
       <group
         ref={ref}
-        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
-        onPointerOut={() => { document.body.style.cursor = "default"; }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+          if ((e.object as THREE.Mesh).isMesh) setHover(e.object as THREE.Mesh);
+        }}
+        onPointerOut={() => { document.body.style.cursor = "default"; setHover(null); }}
         onClick={(e) => {
           e.stopPropagation();
           const obj = e.object as THREE.Object3D;
@@ -256,7 +312,7 @@ function GLBModel({
       >
         <primitive object={scene} />
       </group>
-    </Center>
+    </group>
   );
 }
 
@@ -343,7 +399,18 @@ function ControlledOrbit() {
     if (Math.abs(rotating.current) < 1e-3) rotating.current = 0;
   });
 
-  return <OrbitControls ref={ref} enablePan={panEnabled} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />;
+  return (
+    <OrbitControls
+      ref={ref}
+      makeDefault
+      enablePan={panEnabled}
+      enableDamping
+      dampingFactor={0.08}
+      minDistance={1.2}
+      maxDistance={7}
+      target={[0, 0.3, 0]}
+    />
+  );
 }
 
 
@@ -428,22 +495,61 @@ export function HumanBody3D({
   const online = typeof navigator !== "undefined" ? navigator.onLine : true;
 
   return (
-    <div className={`w-full ${height} rounded-2xl overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border border-border relative`}>
+    <div
+      className={`w-full ${height} rounded-2xl overflow-hidden border border-border relative`}
+      style={{
+        background:
+          "radial-gradient(120% 90% at 50% 0%, oklch(0.26 0.05 250) 0%, oklch(0.14 0.03 255) 55%, oklch(0.09 0.02 258) 100%)",
+      }}
+    >
       <Canvas
-        camera={{ position: [0, 0.4, 3.2], fov: 45 }}
+        camera={{ position: [0, 0.4, 3.2], fov: 42 }}
         shadows={highQuality}
         dpr={highQuality ? [1, lod.highDprMax] : [1, lod.lowDprMax]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{
+          antialias: true,
+          powerPreference: "high-performance",
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.15,
+        }}
         performance={{ min: 0.5 }}
       >
         <FpsSampler />
-        <ambientLight intensity={0.45} />
-        <directionalLight position={[3, 5, 4]} intensity={1.2} castShadow={highQuality} />
-        <pointLight position={[-3, 2, -2]} intensity={0.6} color="#5cbdb9" />
+        <fog attach="fog" args={["#070c14", 5, 12]} />
+        {/* Cinematic clinical rig: cool key, warm fill, teal rim */}
+        <ambientLight intensity={0.28} />
+        <hemisphereLight args={["#a9d8ff", "#0b1220", 0.5]} />
+        <directionalLight
+          position={[3.5, 5.5, 4]}
+          intensity={1.6}
+          color="#f4f8ff"
+          castShadow={highQuality}
+          shadow-mapSize={[1024, 1024]}
+          shadow-bias={-0.0005}
+        />
+        <directionalLight position={[-4, 1.5, 2]} intensity={0.45} color="#ffd8b8" />
+        <spotLight position={[-2.5, 3, -4]} angle={0.8} penumbra={1} intensity={2.2} color="#3fd0d4" />
+        <pointLight position={[0, -1.5, 2]} intensity={0.5} color="#2ea8ff" />
         <Suspense fallback={<BodySilhouette opacity={0.25} />}>
-          {highQuality && <Environment preset="studio" />}
+          <Environment preset={highQuality ? "studio" : "city"} resolution={highQuality ? 512 : 128} />
+          <Grid
+            position={[0, -1.55, 0]}
+            args={[14, 14]}
+            cellSize={0.35}
+            cellThickness={0.5}
+            cellColor="#1d3a55"
+            sectionSize={1.4}
+            sectionThickness={1}
+            sectionColor="#2ea8ff"
+            fadeDistance={11}
+            fadeStrength={1.4}
+            infiniteGrid
+          />
+          <ContactShadows position={[0, -1.5, 0]} opacity={0.55} scale={8} blur={2.6} far={4} color="#000814" />
           {blobUrl ? (
-            <GLBModel url={blobUrl} system={system} view={view} lowQuality={!highQuality} onPick={handlePick} />
+            <Bounds fit clip observe margin={1.15}>
+              <GLBModel url={blobUrl} system={system} view={view} lowQuality={!highQuality} onPick={handlePick} />
+            </Bounds>
           ) : (
             <BodySilhouette opacity={view === "organs" ? 0.05 : view === "transparent" ? 0.12 : 0.2} />
           )}
@@ -480,6 +586,24 @@ export function HumanBody3D({
           <ControlledOrbit />
         </Suspense>
       </Canvas>
+      {/* Optical layer: vignette + scanlines + HUD reticles */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(80% 65% at 50% 45%, transparent 55%, oklch(0.06 0.02 260 / 0.55) 100%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay"
+        style={{ backgroundImage: "repeating-linear-gradient(to bottom, #cfe9ff 0px, #cfe9ff 1px, transparent 1px, transparent 3px)" }}
+      />
+      <div className="pointer-events-none absolute inset-4">
+        <span className="absolute left-0 top-0 w-5 h-5 border-l border-t border-sky-400/40" />
+        <span className="absolute right-0 top-0 w-5 h-5 border-r border-t border-sky-400/40" />
+        <span className="absolute left-0 bottom-0 w-5 h-5 border-l border-b border-sky-400/40" />
+        <span className="absolute right-0 bottom-0 w-5 h-5 border-r border-b border-sky-400/40" />
+      </div>
       <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />
       {pickedPart && (
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">

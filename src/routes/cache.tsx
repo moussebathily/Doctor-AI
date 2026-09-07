@@ -92,7 +92,7 @@ function CachePage() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm">
-              <Link to="/simulation">
+              <Link to="/simulation" search={{ op: undefined }}>
                 <ArrowLeft className="w-4 h-4 mr-1" /> Retour
               </Link>
             </Button>
