@@ -312,7 +312,7 @@ function GLBModel({
       >
         <primitive object={scene} />
       </group>
-    </Center>
+    </group>
   );
 }
 
