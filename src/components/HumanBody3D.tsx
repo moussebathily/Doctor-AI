@@ -202,6 +202,20 @@ function GLBModel({
   const { scene } = useGLTF(url, true, true, extendLoader as never);
   const ref = useRef<THREE.Group>(null);
   const hovered = useRef<THREE.Mesh | null>(null);
+
+  // Normalize any GLB to a consistent ~2.4 unit body height so framing is stable.
+  useEffect(() => {
+    scene.scale.set(1, 1, 1);
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0 && Number.isFinite(maxDim)) {
+      const k = 2.4 / maxDim;
+      scene.scale.setScalar(k);
+    }
+  }, [scene]);
   const hoverPrev = useRef<{ emissive: number; intensity: number } | null>(null);
 
   useEffect(() => {
