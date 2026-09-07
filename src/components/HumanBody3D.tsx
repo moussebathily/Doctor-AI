@@ -547,7 +547,9 @@ export function HumanBody3D({
           />
           <ContactShadows position={[0, -1.5, 0]} opacity={0.55} scale={8} blur={2.6} far={4} color="#000814" />
           {blobUrl ? (
-            <GLBModel url={blobUrl} system={system} view={view} lowQuality={!highQuality} onPick={handlePick} />
+            <Bounds fit clip observe margin={1.15}>
+              <GLBModel url={blobUrl} system={system} view={view} lowQuality={!highQuality} onPick={handlePick} />
+            </Bounds>
           ) : (
             <BodySilhouette opacity={view === "organs" ? 0.05 : view === "transparent" ? 0.12 : 0.2} />
           )}
