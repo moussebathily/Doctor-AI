@@ -555,7 +555,13 @@ export function HumanBody3D({
         </Suspense>
       </Canvas>
       {/* Optical layer: vignette + scanlines + HUD reticles */}
-      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(75%_60%_at_50%_45%,transparent_45%,oklch(0.05_0.02_260/0.75)_100%)]" />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(80% 65% at 50% 45%, transparent 55%, oklch(0.06 0.02 260 / 0.55) 100%)",
+        }}
+      />
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay"
         style={{ backgroundImage: "repeating-linear-gradient(to bottom, #cfe9ff 0px, #cfe9ff 1px, transparent 1px, transparent 3px)" }}
