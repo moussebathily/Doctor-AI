@@ -465,7 +465,13 @@ export function HumanBody3D({
   const online = typeof navigator !== "undefined" ? navigator.onLine : true;
 
   return (
-    <div className={`w-full ${height} rounded-2xl overflow-hidden bg-[radial-gradient(120%_90%_at_50%_0%,oklch(0.24_0.05_250)_0%,oklch(0.13_0.03_255)_55%,oklch(0.09_0.02_258)_100%)] border border-border relative`}>
+    <div
+      className={`w-full ${height} rounded-2xl overflow-hidden border border-border relative`}
+      style={{
+        background:
+          "radial-gradient(120% 90% at 50% 0%, oklch(0.26 0.05 250) 0%, oklch(0.14 0.03 255) 55%, oklch(0.09 0.02 258) 100%)",
+      }}
+    >
       <Canvas
         camera={{ position: [0, 0.4, 3.2], fov: 42 }}
         shadows={highQuality}
