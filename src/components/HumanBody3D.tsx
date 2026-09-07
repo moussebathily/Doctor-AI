@@ -203,17 +203,22 @@ function GLBModel({
   const ref = useRef<THREE.Group>(null);
   const hovered = useRef<THREE.Mesh | null>(null);
 
-  // Normalize any GLB to a consistent ~2.4 unit body height so framing is stable.
+  // Normalize any GLB: uniform ~2.4 unit height, recentered on the origin.
   useEffect(() => {
+    scene.position.set(0, 0, 0);
     scene.scale.set(1, 1, 1);
     scene.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
     box.getSize(size);
+    box.getCenter(center);
     const maxDim = Math.max(size.x, size.y, size.z);
     if (maxDim > 0 && Number.isFinite(maxDim)) {
       const k = 2.4 / maxDim;
       scene.scale.setScalar(k);
+      scene.position.set(-center.x * k, -center.y * k + 0.25, -center.z * k);
+      scene.updateMatrixWorld(true);
     }
   }, [scene]);
   const hoverPrev = useRef<{ emissive: number; intensity: number } | null>(null);
