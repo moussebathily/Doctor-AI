@@ -399,7 +399,18 @@ function ControlledOrbit() {
     if (Math.abs(rotating.current) < 1e-3) rotating.current = 0;
   });
 
-  return <OrbitControls ref={ref} enablePan={panEnabled} minDistance={1.5} maxDistance={6} target={[0, 0.3, 0]} />;
+  return (
+    <OrbitControls
+      ref={ref}
+      makeDefault
+      enablePan={panEnabled}
+      enableDamping
+      dampingFactor={0.08}
+      minDistance={1.2}
+      maxDistance={7}
+      target={[0, 0.3, 0]}
+    />
+  );
 }
 
 
