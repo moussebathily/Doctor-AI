@@ -548,6 +548,18 @@ export function HumanBody3D({
           <ControlledOrbit />
         </Suspense>
       </Canvas>
+      {/* Optical layer: vignette + scanlines + HUD reticles */}
+      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(75%_60%_at_50%_45%,transparent_45%,oklch(0.05_0.02_260/0.75)_100%)]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay"
+        style={{ backgroundImage: "repeating-linear-gradient(to bottom, #cfe9ff 0px, #cfe9ff 1px, transparent 1px, transparent 3px)" }}
+      />
+      <div className="pointer-events-none absolute inset-4">
+        <span className="absolute left-0 top-0 w-5 h-5 border-l border-t border-sky-400/40" />
+        <span className="absolute right-0 top-0 w-5 h-5 border-r border-t border-sky-400/40" />
+        <span className="absolute left-0 bottom-0 w-5 h-5 border-l border-b border-sky-400/40" />
+        <span className="absolute right-0 bottom-0 w-5 h-5 border-r border-b border-sky-400/40" />
+      </div>
       <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />
       {pickedPart && (
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">
