@@ -465,20 +465,51 @@ export function HumanBody3D({
   const online = typeof navigator !== "undefined" ? navigator.onLine : true;
 
   return (
-    <div className={`w-full ${height} rounded-2xl overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 border border-border relative`}>
+    <div className={`w-full ${height} rounded-2xl overflow-hidden bg-[radial-gradient(120%_90%_at_50%_0%,oklch(0.24_0.05_250)_0%,oklch(0.13_0.03_255)_55%,oklch(0.09_0.02_258)_100%)] border border-border relative`}>
       <Canvas
-        camera={{ position: [0, 0.4, 3.2], fov: 45 }}
+        camera={{ position: [0, 0.4, 3.2], fov: 42 }}
         shadows={highQuality}
         dpr={highQuality ? [1, lod.highDprMax] : [1, lod.lowDprMax]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{
+          antialias: true,
+          powerPreference: "high-performance",
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.15,
+        }}
         performance={{ min: 0.5 }}
       >
         <FpsSampler />
-        <ambientLight intensity={0.45} />
-        <directionalLight position={[3, 5, 4]} intensity={1.2} castShadow={highQuality} />
-        <pointLight position={[-3, 2, -2]} intensity={0.6} color="#5cbdb9" />
+        <fog attach="fog" args={["#070c14", 5, 12]} />
+        {/* Cinematic clinical rig: cool key, warm fill, teal rim */}
+        <ambientLight intensity={0.28} />
+        <hemisphereLight args={["#a9d8ff", "#0b1220", 0.5]} />
+        <directionalLight
+          position={[3.5, 5.5, 4]}
+          intensity={1.6}
+          color="#f4f8ff"
+          castShadow={highQuality}
+          shadow-mapSize={[1024, 1024]}
+          shadow-bias={-0.0005}
+        />
+        <directionalLight position={[-4, 1.5, 2]} intensity={0.45} color="#ffd8b8" />
+        <spotLight position={[-2.5, 3, -4]} angle={0.8} penumbra={1} intensity={2.2} color="#3fd0d4" />
+        <pointLight position={[0, -1.5, 2]} intensity={0.5} color="#2ea8ff" />
         <Suspense fallback={<BodySilhouette opacity={0.25} />}>
-          {highQuality && <Environment preset="studio" />}
+          <Environment preset={highQuality ? "studio" : "city"} resolution={highQuality ? 512 : 128} />
+          <Grid
+            position={[0, -1.55, 0]}
+            args={[14, 14]}
+            cellSize={0.35}
+            cellThickness={0.5}
+            cellColor="#1d3a55"
+            sectionSize={1.4}
+            sectionThickness={1}
+            sectionColor="#2ea8ff"
+            fadeDistance={11}
+            fadeStrength={1.4}
+            infiniteGrid
+          />
+          <ContactShadows position={[0, -1.5, 0]} opacity={0.55} scale={8} blur={2.6} far={4} color="#000814" />
           {blobUrl ? (
             <GLBModel url={blobUrl} system={system} view={view} lowQuality={!highQuality} onPick={handlePick} />
           ) : (
