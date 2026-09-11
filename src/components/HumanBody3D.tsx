@@ -604,7 +604,7 @@ export function HumanBody3D({
         <span className="absolute left-0 bottom-0 w-5 h-5 border-l border-b border-sky-400/40" />
         <span className="absolute right-0 bottom-0 w-5 h-5 border-r border-b border-sky-400/40" />
       </div>
-      <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />
+      {!blobUrl && <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />}
       {pickedPart && (
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">
           <div className="text-xs">
