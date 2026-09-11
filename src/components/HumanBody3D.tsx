@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Html, Environment, useGLTF, Center, ContactShadows, Grid } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF, Bounds, ContactShadows, Grid } from "@react-three/drei";
 import { DRACOLoader, KTX2Loader } from "three-stdlib";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import * as THREE from "three";
@@ -378,7 +378,7 @@ function ControlledOrbit() {
       } else if (a === "pan-toggle") {
         setPanEnabled((v) => !v);
       } else if (a === "reset") {
-        camera.position.set(0, 0.4, 3.2);
+        camera.position.set(0, 0.45, 4.2);
         ctrl.target.set(0, 0.3, 0);
         ctrl.update();
       }
@@ -503,7 +503,7 @@ export function HumanBody3D({
       }}
     >
       <Canvas
-        camera={{ position: [0, 0.4, 3.2], fov: 42 }}
+        camera={{ position: [0, 0.45, 4.2], fov: 42 }}
         shadows={highQuality}
         dpr={highQuality ? [1, lod.highDprMax] : [1, lod.lowDprMax]}
         gl={{
@@ -604,7 +604,7 @@ export function HumanBody3D({
         <span className="absolute left-0 bottom-0 w-5 h-5 border-l border-b border-sky-400/40" />
         <span className="absolute right-0 bottom-0 w-5 h-5 border-r border-b border-sky-400/40" />
       </div>
-      <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />
+      {!blobUrl && <GLBLoaderOverlay progress={progress} error={error} online={online} onRetry={retry} />}
       {pickedPart && (
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-card/90 backdrop-blur border border-border shadow-lg">
           <div className="text-xs">
