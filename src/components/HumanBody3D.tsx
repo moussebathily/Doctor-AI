@@ -378,7 +378,7 @@ function ControlledOrbit() {
       } else if (a === "pan-toggle") {
         setPanEnabled((v) => !v);
       } else if (a === "reset") {
-        camera.position.set(0, 0.4, 3.2);
+        camera.position.set(0, 0.45, 4.2);
         ctrl.target.set(0, 0.3, 0);
         ctrl.update();
       }
@@ -503,7 +503,7 @@ export function HumanBody3D({
       }}
     >
       <Canvas
-        camera={{ position: [0, 0.4, 3.2], fov: 42 }}
+        camera={{ position: [0, 0.45, 4.2], fov: 42 }}
         shadows={highQuality}
         dpr={highQuality ? [1, lod.highDprMax] : [1, lod.lowDprMax]}
         gl={{
