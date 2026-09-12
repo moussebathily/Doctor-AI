@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
+  HeartPulse,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ const NAV = [
   { to: "/doctor", label: "Doctor AI", icon: Stethoscope },
   { to: "/lab", label: "Virtual Lab", icon: FlaskConical },
   { to: "/simulation", label: "Simulation 3D", icon: Boxes },
+  { to: "/urgence-cardiaque", label: "Urgence cardiaque", icon: HeartPulse },
   { to: "/pharmacy", label: "Pharmacies", icon: MapPin },
   { to: "/research", label: "Recherche", icon: Search },
   { to: "/reminders", label: "Rappels", icon: BookOpen },

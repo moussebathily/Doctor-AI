@@ -88,7 +88,7 @@ function HeartMesh({ rhythm, onShock }: { rhythm: string; onShock: () => void })
         <meshStandardMaterial color="#4a5b8c" roughness={0.6} />
       </mesh>
 
-      <Html position={[0, 1.95, 0]} center distanceFactor={8}>
+      <Html position={[0, 1.75, 0]} center distanceFactor={8}>
         <div
           className={`px-3 py-1 rounded-md text-[11px] font-bold backdrop-blur-md border whitespace-nowrap ${
             rhythm === "VFIB"
@@ -124,7 +124,7 @@ export function HeartSimulation({
         fallback={<div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Chargement de la scène 3D…</div>}
       >
         <Canvas shadows dpr={[1, 2]}>
-          <PerspectiveCamera makeDefault position={[0, 0.3, 5]} fov={45} />
+          <PerspectiveCamera makeDefault position={[0.05, 0.55, 5.4]} fov={45} />
           <ambientLight intensity={0.35} />
           <spotLight position={[6, 8, 6]} angle={0.35} penumbra={1} intensity={2.2} castShadow />
           <pointLight position={[-6, -3, -4]} intensity={1.2} color="#ff2244" />
