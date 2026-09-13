@@ -1,18 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/AppShell";
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer";
 import { HeartSimulation } from "@/components/cardiac/HeartSimulation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Zap, Syringe, HeartPulse, RotateCcw, Send, Loader2, Timer } from "lucide-react";
+import { Zap, Syringe, HeartPulse, RotateCcw, Send, Loader2, Timer, Bot } from "lucide-react";
+import { TURN_SECONDS, type CardiacAction, type CardiacSession } from "@/lib/cardiac-game";
 import {
-  initCardiacScenario,
-  processCardiacAction,
-  timeoutDeath,
-  type CardiacAction,
-  type CardiacState,
-} from "@/lib/cardiac-game";
+  actOnCardiacSession,
+  aiManageCardiacSession,
+  askCardiacAI,
+  createCardiacSession,
+  getCardiacSession,
+  listCardiacSessions,
+  tickCardiacSession,
+} from "@/lib/cardiac.functions";
 
 export const Route = createFileRoute("/urgence-cardiaque")({
   head: () => ({
@@ -35,112 +39,168 @@ export const Route = createFileRoute("/urgence-cardiaque")({
   component: CardiacChallengePage,
 });
 
-const TOTAL_TIME = 60;
-
-type ChatMsg = { role: "user" | "assistant"; content: string };
+type ChatMsg = { role: string; content: string };
 
 function CardiacChallengePage() {
-  const [state, setState] = useState<CardiacState>(() => initCardiacScenario());
-  const [timer, setTimer] = useState(TOTAL_TIME);
-  const [flash, setFlash] = useState(false);
+  const list = useServerFn(listCardiacSessions);
+  const create = useServerFn(createCardiacSession);
+  const get = useServerFn(getCardiacSession);
+  const act = useServerFn(actOnCardiacSession);
+  const tick = useServerFn(tickCardiacSession);
+  const ask = useServerFn(askCardiacAI);
+  const aiPlay = useServerFn(aiManageCardiacSession);
+
+  const [session, setSession] = useState<CardiacSession | null>(null);
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [fatal, setFatal] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
 
+  // Reprise de la dernière partie active, sinon création d'un nouveau patient.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const sessions = await list();
+        const active = sessions.find((s) => s.status === "active");
+        if (active) {
+          const loaded = await get({ data: { id: active.id } });
+          if (!cancelled && loaded) {
+            setSession(loaded.session);
+            setChat(loaded.messages.map((m) => ({ role: m.role, content: m.content })));
+          }
+        } else {
+          const fresh = await create();
+          if (!cancelled) setSession(fresh);
+        }
+      } catch (e) {
+        if (!cancelled) setFatal((e as Error).message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [list, get, create]);
+
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
-  }, [state.logs]);
+  }, [session?.logs]);
   useEffect(() => {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
-  }, [chat, loading]);
+  }, [chat, thinking]);
 
-  // Chrono
+  // Compte à rebours local + synchronisation serveur à chaque tour réel.
   useEffect(() => {
-    if (state.isGameOver) return;
+    if (!session || session.status !== "active") return;
     const id = setInterval(() => {
-      setTimer((t) => {
-        if (t <= 1) {
-          setState((s) => timeoutDeath(s));
-          return 0;
-        }
-        return t - 1;
-      });
+      setSession((s) => (s && s.status === "active" ? { ...s, time_remaining: Math.max(0, s.time_remaining - 1) } : s));
     }, 1000);
     return () => clearInterval(id);
-  }, [state.isGameOver]);
+  }, [session?.id, session?.status]);
 
-  // Dégradation continue en VFIB
+  const sessionId = session?.id;
+  const syncNow = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const fresh = await tick({ data: { id: sessionId } });
+      setSession(fresh);
+    } catch {
+      /* réessaiera au tour suivant */
+    }
+  }, [sessionId, tick]);
+
   useEffect(() => {
-    if (state.isGameOver || state.rhythm !== "VFIB") return;
-    const id = setInterval(() => setState((s) => processCardiacAction(s, "WAIT")), 8000);
+    if (!session || session.status !== "active") return;
+    const id = setInterval(() => void syncNow(), TURN_SECONDS * 1000);
     return () => clearInterval(id);
-  }, [state.isGameOver, state.rhythm]);
+  }, [session?.id, session?.status, syncNow]);
 
-  const act = (action: CardiacAction) => {
-    if (state.isGameOver) return;
+  const doAction = async (action: CardiacAction) => {
+    if (!session || session.status !== "active" || busy) return;
     if (action === "SHOCK") {
       setFlash(true);
       setTimeout(() => setFlash(false), 400);
     }
-    setState((s) => processCardiacAction(s, action));
-  };
-
-  const restart = () => {
-    setState(initCardiacScenario());
-    setTimer(TOTAL_TIME);
-    setChat([]);
-  };
-
-  const ask = async (text: string) => {
-    const q = text.trim();
-    if (!q || loading) return;
-    setInput("");
-    const history: ChatMsg[] = [...chat, { role: "user", content: q }];
-    setChat(history);
-    setLoading(true);
+    setBusy(true);
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/medical-ai`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "doctor",
-          stream: false,
-          messages: [
-            {
-              role: "user",
-              content:
-                `Contexte de simulation (entraînement pédagogique, arrêt cardiaque) : rythme=${state.rhythm}, ` +
-                `santé=${state.health}%, chocs délivrés=${state.shockCount}, temps restant=${timer}s. ` +
-                `Réponds brièvement en français selon le protocole ACLS.`,
-            },
-            ...history,
-          ],
-        }),
-      });
-      if (!resp.ok) {
-        throw new Error(
-          resp.status === 429
-            ? "Trop de requêtes, réessayez dans un instant."
-            : resp.status === 402
-              ? "Crédits IA épuisés."
-              : "L'assistant est indisponible.",
-        );
-      }
-      const data = await resp.json();
-      const content: string = data?.message?.content ?? data?.choices?.[0]?.message?.content ?? "…";
-      setChat((c) => [...c, { role: "assistant", content }]);
+      setSession(await act({ data: { id: session.id, action } }));
     } catch (e) {
-      setChat((c) => [...c, { role: "assistant", content: (e as Error).message }]);
+      setFatal((e as Error).message);
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const victory = state.isGameOver && state.victory;
-  const defeat = state.isGameOver && !state.victory;
+  const letAIPlay = async () => {
+    if (!session || session.status !== "active" || busy) return;
+    setBusy(true);
+    try {
+      const res = await aiPlay({ data: { id: session.id } });
+      setSession(res.session);
+    } catch (e) {
+      setFatal((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restart = async () => {
+    setBusy(true);
+    try {
+      setSession(await create());
+      setChat([]);
+    } catch (e) {
+      setFatal((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendQuestion = async (text: string) => {
+    const q = text.trim();
+    if (!q || thinking || !session) return;
+    setInput("");
+    setChat((c) => [...c, { role: "user", content: q }]);
+    setThinking(true);
+    try {
+      const res = await ask({ data: { id: session.id, question: q } });
+      setChat((c) => [...c, { role: "assistant", content: res.answer }]);
+    } catch (e) {
+      setChat((c) => [...c, { role: "assistant", content: (e as Error).message }]);
+    } finally {
+      setThinking(false);
+    }
+  };
+
+  if (fatal) {
+    return (
+      <AppShell>
+        <div className="max-w-2xl mx-auto p-8 text-center space-y-3">
+          <p className="text-destructive font-semibold">{fatal}</p>
+          <p className="text-sm text-muted-foreground">Connectez-vous pour enregistrer et reprendre vos parties.</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!session) {
+    return (
+      <AppShell>
+        <div className="h-[60vh] grid place-items-center text-muted-foreground">
+          <p className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Chargement de la salle d'urgence…
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const victory = session.status === "won";
+  const defeat = session.status === "lost";
 
   return (
     <AppShell>
@@ -149,40 +209,46 @@ function CardiacChallengePage() {
           <div>
             <h1 className="text-2xl font-bold">Défi : Urgence cardiaque</h1>
             <p className="text-sm text-muted-foreground">
-              Le patient est en fibrillation ventriculaire. Rétablissez un rythme sinusal avant la fin du chrono.
+              {session.patient_name}, {session.patient_age} ans — {session.scenario}. Un tour dure {TURN_SECONDS}s
+              réelles ; la partie est enregistrée automatiquement.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <span
               className={`flex items-center gap-1.5 font-mono text-xl font-bold ${
-                timer < 10 ? "text-destructive animate-pulse" : "text-foreground"
+                session.time_remaining < 20 && session.status === "active"
+                  ? "text-destructive animate-pulse"
+                  : "text-foreground"
               }`}
             >
-              <Timer className="w-5 h-5" /> {timer}s
+              <Timer className="w-5 h-5" /> {session.time_remaining}s
             </span>
-            <Button variant="outline" size="sm" onClick={restart}>
-              <RotateCcw className="w-4 h-4 mr-1.5" /> Rejouer
+            <Button variant="outline" size="sm" onClick={() => void restart()} disabled={busy}>
+              <RotateCcw className="w-4 h-4 mr-1.5" /> Nouveau patient
             </Button>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <HeartSimulation state={state} onShock={() => act("SHOCK")} flash={flash} />
+            <HeartSimulation state={session} onShock={() => void doAction("SHOCK")} flash={flash} />
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <Button
-                onClick={() => act("SHOCK")}
-                disabled={state.isGameOver}
+                onClick={() => void doAction("SHOCK")}
+                disabled={session.status !== "active" || busy}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
                 <Zap className="w-4 h-4 mr-1.5" /> Choc 200 J
               </Button>
-              <Button variant="secondary" onClick={() => act("MEDS")} disabled={state.isGameOver}>
+              <Button variant="secondary" onClick={() => void doAction("MEDS")} disabled={session.status !== "active" || busy}>
                 <Syringe className="w-4 h-4 mr-1.5" /> Adrénaline
               </Button>
-              <Button variant="secondary" onClick={() => act("CPR")} disabled={state.isGameOver}>
+              <Button variant="secondary" onClick={() => void doAction("CPR")} disabled={session.status !== "active" || busy}>
                 <HeartPulse className="w-4 h-4 mr-1.5" /> RCP
+              </Button>
+              <Button variant="outline" onClick={() => void letAIPlay()} disabled={session.status !== "active" || busy}>
+                <Bot className="w-4 h-4 mr-1.5" /> Laisser l'IA agir
               </Button>
             </div>
 
@@ -192,23 +258,25 @@ function CardiacChallengePage() {
                 ref={logRef}
                 className="h-36 overflow-y-auto rounded-lg bg-slate-950 p-2 font-mono text-xs text-emerald-400 space-y-1"
               >
-                {state.logs.map((log, i) => (
+                {session.logs.map((log, i) => (
                   <p key={i}>&gt; {log}</p>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card flex flex-col h-[560px]">
+          <div className="rounded-xl border border-border bg-card flex flex-col h-[640px]">
             <div className="p-4 border-b border-border">
               <h2 className="font-semibold">Dr. AI — assistant de réanimation</h2>
-              <p className="text-xs text-muted-foreground">Demandez le protocole, une dose ou la conduite à tenir.</p>
+              <p className="text-xs text-muted-foreground">
+                Historique conservé avec la partie. Posez une vraie question clinique.
+              </p>
             </div>
 
             <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-              {chat.length === 0 && !victory && !defeat && (
+              {chat.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Exemple : « Quel est le protocole ACLS après un choc inefficace ? »
+                  Exemple : « Quelle énergie et quelle drogue après un 3e choc inefficace ? »
                 </p>
               )}
               {chat.map((m, i) => (
@@ -222,14 +290,14 @@ function CardiacChallengePage() {
                   {m.content}
                 </div>
               ))}
-              {loading && (
+              {thinking && (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" /> Analyse en cours…
                 </p>
               )}
               {victory && (
                 <div className="p-4 rounded-lg bg-emerald-500/15 text-emerald-400 text-center font-bold">
-                  Mission accomplie — patient stabilisé en {TOTAL_TIME - timer}s avec {state.shockCount} choc(s).
+                  Mission accomplie — patient stabilisé avec {session.shock_count} choc(s).
                 </div>
               )}
               {defeat && (
@@ -243,7 +311,7 @@ function CardiacChallengePage() {
               className="p-4 border-t border-border flex gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                void ask(input);
+                void sendQuestion(input);
               }}
             >
               <Input
@@ -251,7 +319,7 @@ function CardiacChallengePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ex : dose d'adrénaline en arrêt cardiaque ?"
               />
-              <Button type="submit" disabled={loading || !input.trim()}>
+              <Button type="submit" disabled={thinking || !input.trim()}>
                 <Send className="w-4 h-4" />
               </Button>
             </form>
