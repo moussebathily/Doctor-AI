@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UrgencesRouteImport } from './routes/urgences'
 import { Route as UrgenceCardiaqueRouteImport } from './routes/urgence-cardiaque'
 import { Route as SimulationRouteImport } from './routes/simulation'
 import { Route as ResearchRouteImport } from './routes/research'
@@ -21,6 +22,11 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ArTestRouteImport } from './routes/ar-test'
 import { Route as IndexRouteImport } from './routes/index'
 
+const UrgencesRoute = UrgencesRouteImport.update({
+  id: '/urgences',
+  path: '/urgences',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UrgenceCardiaqueRoute = UrgenceCardiaqueRouteImport.update({
   id: '/urgence-cardiaque',
   path: '/urgence-cardiaque',
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/research': typeof ResearchRoute
   '/simulation': typeof SimulationRoute
   '/urgence-cardiaque': typeof UrgenceCardiaqueRoute
+  '/urgences': typeof UrgencesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/research': typeof ResearchRoute
   '/simulation': typeof SimulationRoute
   '/urgence-cardiaque': typeof UrgenceCardiaqueRoute
+  '/urgences': typeof UrgencesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/research': typeof ResearchRoute
   '/simulation': typeof SimulationRoute
   '/urgence-cardiaque': typeof UrgenceCardiaqueRoute
+  '/urgences': typeof UrgencesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/research'
     | '/simulation'
     | '/urgence-cardiaque'
+    | '/urgences'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/research'
     | '/simulation'
     | '/urgence-cardiaque'
+    | '/urgences'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/research'
     | '/simulation'
     | '/urgence-cardiaque'
+    | '/urgences'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,10 +183,18 @@ export interface RootRouteChildren {
   ResearchRoute: typeof ResearchRoute
   SimulationRoute: typeof SimulationRoute
   UrgenceCardiaqueRoute: typeof UrgenceCardiaqueRoute
+  UrgencesRoute: typeof UrgencesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/urgences': {
+      id: '/urgences'
+      path: '/urgences'
+      fullPath: '/urgences'
+      preLoaderRoute: typeof UrgencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/urgence-cardiaque': {
       id: '/urgence-cardiaque'
       path: '/urgence-cardiaque'
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResearchRoute: ResearchRoute,
   SimulationRoute: SimulationRoute,
   UrgenceCardiaqueRoute: UrgenceCardiaqueRoute,
+  UrgencesRoute: UrgencesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
