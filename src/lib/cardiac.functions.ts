@@ -169,22 +169,65 @@ Termine par une ligne : "⚠️ Simulation pédagogique — ne remplace pas un a
 async function callGateway(messages: { role: string; content: string }[]): Promise<string> {
   const key = process.env['LOVABLE_API_KEY'];
   if (!key) throw new Error("Assistant IA non configuré.");
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Lovable-API-Key": key,
       "X-Lovable-AIG-SDK": "fetch",
     },
-    body: JSON.stringify({ model: "google/gemini-3.8-flash", messages, stream: false }),
+    body: JSON.stringify({
+      model: "openai/gpt-6-astra",
+      input: messages.map((m) => ({
+        role: m.role === "assistant" ? "assistant" : m.role === "system" ? "system" : "user",
+        content: [
+          m.role === "assistant"
+            ? { type: "output_text", text: m.content }
+            : { type: "input_text", text: m.content },
+        ],
+      })),
+      stream: true,
+      reasoning: { effort: "low" },
+      store: false,
+    }),
   });
   if (!resp.ok) {
     if (resp.status === 429) throw new Error("Trop de requêtes IA, réessayez dans quelques secondes.");
     if (resp.status === 402) throw new Error("Crédits IA épuisés — ajoutez du crédit pour continuer.");
     throw new Error(`Assistant indisponible (${resp.status}).`);
   }
-  const json = (await resp.json()) as { choices?: { message?: { content?: string } }[] };
-  return json.choices?.[0]?.message?.content?.trim() || "Je n'ai pas pu formuler de réponse.";
+  if (!resp.body) throw new Error("Réponse IA vide.");
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const evt = JSON.parse(payload) as {
+          type?: string;
+          delta?: string;
+          response?: { output_text?: string };
+        };
+        if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") text += evt.delta;
+        else if (evt.type === "response.completed" && !text && evt.response?.output_text) {
+          text = evt.response.output_text;
+        }
+      } catch {
+        /* ignore les fragments non JSON */
+      }
+    }
+  }
+  return text.trim() || "Je n'ai pas pu formuler de réponse.";
 }
 
 function contextLine(s: CardiacSession) {
