@@ -59,7 +59,9 @@ function EmergencyRoomPage() {
 
   const refresh = useCallback(async () => {
     try {
-      setSessions(await list());
+      const rows = await list();
+      if (!Array.isArray(rows)) throw new Error("Connectez-vous pour gérer vos patients.");
+      setSessions(rows);
       setError(null);
     } catch (e) {
       setError((e as Error).message);

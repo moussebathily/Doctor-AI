@@ -66,6 +66,7 @@ function CardiacChallengePage() {
     (async () => {
       try {
         const sessions = await list();
+        if (!Array.isArray(sessions)) throw new Error("Connectez-vous pour enregistrer et reprendre vos parties.");
         const active = sessions.find((s) => s.status === "active");
         if (active) {
           const loaded = await get({ data: { id: active.id } });
