@@ -35,6 +35,11 @@ export const Route = createFileRoute("/urgences")({
   component: EmergencyRoomPage,
 });
 
+function errMsg(e: unknown): string {
+  const m = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  return m || "Connectez-vous pour gérer vos patients.";
+}
+
 function statusClass(s: CardiacSession["status"]) {
   return s === "active"
     ? "bg-amber-500/15 text-amber-400 border-amber-500/40"
@@ -64,7 +69,7 @@ function EmergencyRoomPage() {
       setSessions(rows);
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(errMsg(e));
     } finally {
       setLoading(false);
     }
@@ -92,7 +97,7 @@ function EmergencyRoomPage() {
       const res = await aiPlay({ data: { id } });
       setSessions((rows) => rows.map((s) => (s.id === id ? res.session : s)));
     } catch (e) {
-      setError((e as Error).message);
+      setError(errMsg(e));
     } finally {
       setBusyId(null);
     }
@@ -139,7 +144,7 @@ function EmergencyRoomPage() {
                   const res = await triage();
                   setReport(res.report);
                 } catch (e) {
-                  setError((e as Error).message);
+                  setError(errMsg(e));
                 } finally {
                   setReporting(false);
                 }

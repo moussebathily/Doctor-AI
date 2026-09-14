@@ -41,6 +41,11 @@ export const Route = createFileRoute("/urgence-cardiaque")({
 
 type ChatMsg = { role: string; content: string };
 
+function errMsg(e: unknown): string {
+  const m = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  return m || "Connectez-vous pour enregistrer et reprendre vos parties.";
+}
+
 function CardiacChallengePage() {
   const list = useServerFn(listCardiacSessions);
   const create = useServerFn(createCardiacSession);
@@ -79,7 +84,7 @@ function CardiacChallengePage() {
           if (!cancelled) setSession(fresh);
         }
       } catch (e) {
-        if (!cancelled) setFatal((e as Error).message);
+        if (!cancelled) setFatal(errMsg(e));
       }
     })();
     return () => {
@@ -130,7 +135,7 @@ function CardiacChallengePage() {
     try {
       setSession(await act({ data: { id: session.id, action } }));
     } catch (e) {
-      setFatal((e as Error).message);
+      setFatal(errMsg(e));
     } finally {
       setBusy(false);
     }
@@ -143,7 +148,7 @@ function CardiacChallengePage() {
       const res = await aiPlay({ data: { id: session.id } });
       setSession(res.session);
     } catch (e) {
-      setFatal((e as Error).message);
+      setFatal(errMsg(e));
     } finally {
       setBusy(false);
     }
@@ -155,7 +160,7 @@ function CardiacChallengePage() {
       setSession(await create());
       setChat([]);
     } catch (e) {
-      setFatal((e as Error).message);
+      setFatal(errMsg(e));
     } finally {
       setBusy(false);
     }
@@ -171,7 +176,7 @@ function CardiacChallengePage() {
       const res = await ask({ data: { id: session.id, question: q } });
       setChat((c) => [...c, { role: "assistant", content: res.answer }]);
     } catch (e) {
-      setChat((c) => [...c, { role: "assistant", content: (e as Error).message }]);
+      setChat((c) => [...c, { role: "assistant", content: errMsg(e) }]);
     } finally {
       setThinking(false);
     }
